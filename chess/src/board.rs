@@ -179,7 +179,7 @@ impl Default for RawBoard {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Board {
     r: RawBoard,
     pub(crate) hash: u64,
