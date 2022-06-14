@@ -26,10 +26,22 @@ impl Zobrist {
             }
             res
         };
+        let castling = {
+            let base = [(); 4].map(|_| gen.next_u64());
+            let mut res = [0_u64; 16];
+            for (i, val) in res.iter_mut().enumerate() {
+                for (j, base_val) in base.iter().enumerate() {
+                    if (i >> j) & 1 != 0 {
+                        *val ^= base_val;
+                    }
+                }
+            }
+            res
+        };
         Zobrist {
             pieces,
             move_side: gen.next_u64(),
-            castling: [(); 16].map(|_| gen.next_u64()),
+            castling,
             enpassant: [(); 64].map(|_| gen.next_u64()),
             castling_kingside: [Color::White, Color::Black].map(|c| {
                 let rook = Cell::from_parts(c, Piece::Rook);
@@ -58,7 +70,7 @@ impl Zobrist {
     }
 
     fn output<W: Write>(&self, w: &mut W) -> io::Result<()> {
-        writeln!(w, "pub const PIECES: [[u64; 64]; Cell::MAX_INDEX] = [")?;
+        writeln!(w, "const PIECES: [[u64; 64]; Cell::MAX_INDEX] = [")?;
         for (i, sub) in self.pieces.iter().enumerate() {
             writeln!(w, "    /*{:2}*/ [", i)?;
             for (i, hsh) in sub.iter().enumerate() {
@@ -70,13 +82,13 @@ impl Zobrist {
 
         writeln!(w, "pub const MOVE_SIDE: u64 = {:#x};\n", self.move_side)?;
 
-        writeln!(w, "pub const CASTLING: [u64; 16] = [")?;
+        writeln!(w, "const CASTLING: [u64; 16] = [")?;
         for (i, sub) in self.castling.iter().enumerate() {
             writeln!(w, "    /*{:2}*/ {:#x},", i, sub)?;
         }
         writeln!(w, "];\n")?;
 
-        writeln!(w, "pub const ENPASSANT: [u64; 64] = [")?;
+        writeln!(w, "const ENPASSANT: [u64; 64] = [")?;
         for (i, sub) in self.enpassant.iter().enumerate() {
             writeln!(w, "    /*{:2}*/ {:#x},", i, sub)?;
         }
@@ -84,12 +96,12 @@ impl Zobrist {
 
         writeln!(
             w,
-            "pub const CASTLING_KINGSIDE: [u64; 2] = [{:#x}, {:#x}];",
+            "const CASTLING_KINGSIDE: [u64; 2] = [{:#x}, {:#x}];",
             self.castling_kingside[0], self.castling_kingside[1]
         )?;
         writeln!(
             w,
-            "pub const CASTLING_QUEENSIDE: [u64; 2] = [{:#x}, {:#x}];",
+            "const CASTLING_QUEENSIDE: [u64; 2] = [{:#x}, {:#x}];",
             self.castling_queenside[0], self.castling_queenside[1]
         )?;
 

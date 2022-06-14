@@ -131,19 +131,19 @@ impl RawBoard {
     }
 
     pub fn get(&self, c: Coord) -> Cell {
-        self.cells[c.index()]
+        unsafe { *self.cells.get_unchecked(c.index()) }
     }
 
     pub fn get2(&self, file: File, rank: Rank) -> Cell {
-        self.cells[Coord::from_parts(file, rank).index()]
+        self.get(Coord::from_parts(file, rank))
     }
 
     pub fn put(&mut self, c: Coord, cell: Cell) {
-        self.cells[c.index()] = cell;
+        unsafe { *self.cells.get_unchecked_mut(c.index()) = cell; }
     }
 
     pub fn put2(&mut self, file: File, rank: Rank, cell: Cell) {
-        self.cells[Coord::from_parts(file, rank).index()] = cell;
+        self.put(Coord::from_parts(file, rank), cell);
     }
 
     pub fn zobrist_hash(&self) -> u64 {
@@ -153,12 +153,12 @@ impl RawBoard {
             0
         };
         if let Some(p) = self.enpassant {
-            hash ^= zobrist::ENPASSANT[p.index()];
+            hash ^= zobrist::enpassant(p);
         }
-        hash ^= zobrist::CASTLING[self.castling.index()];
+        hash ^= zobrist::castling(self.castling);
         for (i, cell) in self.cells.iter().enumerate() {
             if !cell.is_empty() {
-                hash ^= zobrist::PIECES[cell.index()][i];
+                hash ^= zobrist::pieces(*cell, Coord::from_index(i));
             }
         }
         hash
@@ -227,19 +227,19 @@ impl Board {
     }
 
     pub(crate) fn piece(&self, c: Cell) -> Bitboard {
-        self.pieces[c.index()]
+        unsafe { *self.pieces.get_unchecked(c.index()) }
     }
 
     pub(crate) fn piece2(&self, c: Color, p: Piece) -> Bitboard {
-        self.pieces[Cell::from_parts(c, p).index()]
+        self.piece(Cell::from_parts(c, p))
     }
 
     pub(crate) fn piece_mut(&mut self, c: Cell) -> &mut Bitboard {
-        &mut self.pieces[c.index()]
+        unsafe { self.pieces.get_unchecked_mut(c.index()) }
     }
 
     pub(crate) fn piece2_mut(&mut self, c: Color, p: Piece) -> &mut Bitboard {
-        &mut self.pieces[Cell::from_parts(c, p).index()]
+        self.piece_mut(Cell::from_parts(c, p))
     }
 
     pub fn king_pos(&self, c: Color) -> Coord {

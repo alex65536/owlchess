@@ -7,6 +7,34 @@ pub const fn castling_rank(c: Color) -> Rank {
     }
 }
 
+pub const fn double_move_src_rank(c: Color) -> Rank {
+    match c {
+        Color::White => Rank::R2,
+        Color::Black => Rank::R7,
+    }
+}
+
+pub const fn double_move_dst_rank(c: Color) -> Rank {
+    match c {
+        Color::White => Rank::R4,
+        Color::Black => Rank::R5,
+    }
+}
+
+pub const fn promote_src_rank(c: Color) -> Rank {
+    match c {
+        Color::White => Rank::R7,
+        Color::Black => Rank::R2,
+    }
+}
+
+pub const fn promote_dst_rank(c: Color) -> Rank {
+    match c {
+        Color::White => Rank::R8,
+        Color::Black => Rank::R1,
+    }
+}
+
 pub const fn enpassant_src_rank(c: Color) -> Rank {
     match c {
         Color::White => Rank::R5,

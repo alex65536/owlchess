@@ -37,7 +37,7 @@ pub const DIAG2: [Bitboard; 15] = [
     Bitboard::from_raw(0x0000000000000080),
 ];
 
-pub const RANK: [Bitboard; 8] = [
+const RANK: [Bitboard; 8] = [
     Bitboard::from_raw(0x00000000000000ff),
     Bitboard::from_raw(0x000000000000ff00),
     Bitboard::from_raw(0x0000000000ff0000),
@@ -52,7 +52,7 @@ pub const fn rank(r: Rank) -> Bitboard {
     RANK[r.index()]
 }
 
-pub const FILE: [Bitboard; 8] = [
+const FILE: [Bitboard; 8] = [
     Bitboard::from_raw(0x0101010101010101),
     Bitboard::from_raw(0x0202020202020202),
     Bitboard::from_raw(0x0404040404040404),
