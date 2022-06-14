@@ -3,8 +3,11 @@ name = "owlchess"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+owlchess_base = { path = "../chess_base" }
 thiserror = "1.0.31"
-derive_more = "0.99.17"
+
+[build-dependencies]
+owlchess_base = { path = "../chess_base" }
+rand_xoshiro = "0.6.0"
+rand_core = "0.6.3"

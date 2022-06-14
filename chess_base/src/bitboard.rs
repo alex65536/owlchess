@@ -1,9 +1,11 @@
 use crate::types::Coord;
 use derive_more::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
+use std::fmt::{self, Display};
 use std::iter::IntoIterator;
 
 #[derive(
     Debug,
+    Default,
     Copy,
     Clone,
     PartialEq,
@@ -22,31 +24,39 @@ pub struct Bitboard(u64);
 impl Bitboard {
     pub const EMPTY: Bitboard = Bitboard(0);
 
-    pub fn from_raw(val: u64) -> Bitboard {
+    pub const fn from_raw(val: u64) -> Bitboard {
         Bitboard(val)
     }
 
-    pub fn from_coord(coord: Coord) -> Bitboard {
+    pub const fn from_coord(coord: Coord) -> Bitboard {
         Bitboard(1_u64 << coord.index())
     }
 
-    pub fn with(self, coord: Coord) -> Bitboard {
+    pub const fn with(self, coord: Coord) -> Bitboard {
         Bitboard(self.0 | (1_u64 << coord.index()))
     }
 
-    pub fn without(self, coord: Coord) -> Bitboard {
+    pub const fn without(self, coord: Coord) -> Bitboard {
         Bitboard(self.0 & !(1_u64 << coord.index()))
     }
 
-    pub fn as_raw(&self) -> u64 {
+    pub fn set(&mut self, coord: Coord) {
+        *self = self.with(coord);
+    }
+
+    pub fn unset(&mut self, coord: Coord) {
+        *self = self.without(coord);
+    }
+
+    pub const fn as_raw(&self) -> u64 {
         self.0
     }
 
-    pub fn popcount(&self) -> u32 {
+    pub const fn popcount(&self) -> u32 {
         self.0.count_ones()
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.0 == 0
     }
 }
@@ -54,6 +64,30 @@ impl Bitboard {
 impl From<Bitboard> for u64 {
     fn from(b: Bitboard) -> u64 {
         b.0
+    }
+}
+
+impl From<u64> for Bitboard {
+    fn from(u: u64) -> Bitboard {
+        Bitboard(u)
+    }
+}
+
+impl Display for Bitboard {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        let v = self.0.reverse_bits();
+        write!(
+            f,
+            "{:08b}/{:08b}/{:08b}/{:08b}/{:08b}/{:08b}/{:08b}/{:08b}",
+            (v >> 56) & 0xff,
+            (v >> 48) & 0xff,
+            (v >> 40) & 0xff,
+            (v >> 32) & 0xff,
+            (v >> 24) & 0xff,
+            (v >> 16) & 0xff,
+            (v >> 8) & 0xff,
+            v & 0xff,
+        )
     }
 }
 
@@ -69,7 +103,7 @@ impl Iterator for Iter {
         let bit = self.0.trailing_zeros();
         self.0 &= self.0.wrapping_sub(1_u64);
         dbg!(bit);
-        unsafe { Some(Coord::from_index_unchecked(bit as u8)) }
+        unsafe { Some(Coord::from_index_unchecked(bit as usize)) }
     }
 }
 
@@ -117,5 +151,18 @@ mod test {
 
         assert_eq!((!bb1).into_iter().count(), 62);
         assert_eq!((!bb1).popcount(), 62);
+    }
+
+    #[test]
+    fn test_format() {
+        let bb = Bitboard::EMPTY
+            .with(Coord::from_parts(File::A, Rank::R4))
+            .with(Coord::from_parts(File::E, Rank::R2))
+            .with(Coord::from_parts(File::F, Rank::R3))
+            .with(Coord::from_parts(File::H, Rank::R8));
+        assert_eq!(
+            bb.to_string(),
+            "00000001/00000000/00000000/00000000/10000000/00000100/00001000/00000000"
+        );
     }
 }

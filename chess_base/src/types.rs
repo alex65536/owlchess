@@ -1,24 +1,42 @@
-use std::fmt::Display;
+use std::fmt::{self, Display};
 use std::hint;
 use std::str::FromStr;
 use thiserror::Error;
 
 #[derive(Error, Debug, Copy, Clone, PartialEq, Eq)]
-pub enum CoordError {
-    #[error("unexpected file char `{0}`")]
-    UnexpectedFile(char),
-    #[error("unexpected rank char `{0}`")]
-    UnexpectedRank(char),
+pub enum CoordParseError {
+    #[error("unexpected file char {0:?}")]
+    UnexpectedFileChar(char),
+    #[error("unexpected rank char {0:?}")]
+    UnexpectedRankChar(char),
     #[error("invalid string length")]
     BadLength,
 }
 
 #[derive(Error, Debug, Copy, Clone, PartialEq, Eq)]
-pub enum CellError {
-    #[error("unexpected cell char `{0}`")]
-    UnexpectedCell(char),
+pub enum CellParseError {
+    #[error("unexpected cell char {0:?}")]
+    UnexpectedChar(char),
     #[error("invalid string length")]
     BadLength,
+}
+
+#[derive(Error, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ColorParseError {
+    #[error("unexpected color char {0:?}")]
+    UnexpectedChar(char),
+    #[error("invalid string length")]
+    BadLength,
+}
+
+#[derive(Error, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum CastlingRightsParseError {
+    #[error("unexpected char {0:?}")]
+    UnexpectedChar(char),
+    #[error("duplicate char {0:?}")]
+    DuplicateChar(char),
+    #[error("unexpected empty string")]
+    EmptyString,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
@@ -35,11 +53,11 @@ pub enum File {
 }
 
 impl File {
-    pub const fn index(&self) -> u8 {
-        *self as u8
+    pub const fn index(&self) -> usize {
+        *self as u8 as usize
     }
 
-    pub const unsafe fn from_index_unchecked(val: u8) -> Self {
+    pub const unsafe fn from_index_unchecked(val: usize) -> Self {
         match val {
             0 => File::A,
             1 => File::B,
@@ -53,13 +71,23 @@ impl File {
         }
     }
 
-    pub const fn from_index(val: u8) -> Self {
+    pub const fn from_index(val: usize) -> Self {
         assert!(val < 8, "file index must be between 0 and 7");
         unsafe { Self::from_index_unchecked(val) }
     }
 
     pub fn iter() -> impl Iterator<Item = Self> {
-        (0_u8..8_u8).map(|x| unsafe { Self::from_index_unchecked(x) })
+        (0..8).map(|x| unsafe { Self::from_index_unchecked(x) })
+    }
+
+    pub fn as_char(&self) -> char {
+        (b'a' + *self as u8) as char
+    }
+}
+
+impl Display for File {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.as_char())
     }
 }
 
@@ -77,11 +105,11 @@ pub enum Rank {
 }
 
 impl Rank {
-    pub const fn index(&self) -> u8 {
-        *self as u8
+    pub const fn index(&self) -> usize {
+        *self as u8 as usize
     }
 
-    pub const unsafe fn from_index_unchecked(val: u8) -> Self {
+    pub const unsafe fn from_index_unchecked(val: usize) -> Self {
         match val {
             0 => Rank::R8,
             1 => Rank::R7,
@@ -95,13 +123,23 @@ impl Rank {
         }
     }
 
-    pub const fn from_index(val: u8) -> Self {
+    pub const fn from_index(val: usize) -> Self {
         assert!(val < 8, "rank index must be between 0 and 7");
         unsafe { Self::from_index_unchecked(val) }
     }
 
     pub fn iter() -> impl Iterator<Item = Self> {
-        (0_u8..8_u8).map(|x| unsafe { Self::from_index_unchecked(x) })
+        (0..8).map(|x| unsafe { Self::from_index_unchecked(x) })
+    }
+
+    pub fn as_char(&self) -> char {
+        (b'8' - *self as u8) as char
+    }
+}
+
+impl Display for Rank {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.as_char())
     }
 }
 
@@ -109,13 +147,13 @@ impl Rank {
 pub struct Coord(u8);
 
 impl Coord {
-    pub const fn from_index(val: u8) -> Coord {
+    pub const fn from_index(val: usize) -> Coord {
         assert!(val < 64, "coord must be between 0 and 63");
-        Coord(val)
+        Coord(val as u8)
     }
 
-    pub const unsafe fn from_index_unchecked(val: u8) -> Coord {
-        Coord(val)
+    pub const unsafe fn from_index_unchecked(val: usize) -> Coord {
+        Coord(val as u8)
     }
 
     pub const fn from_parts(file: File, rank: Rank) -> Coord {
@@ -123,31 +161,39 @@ impl Coord {
     }
 
     pub const fn file(&self) -> File {
-        unsafe { File::from_index_unchecked(self.0 & 7) }
+        unsafe { File::from_index_unchecked((self.0 & 7) as usize) }
     }
 
     pub const fn rank(&self) -> Rank {
-        unsafe { Rank::from_index_unchecked(self.0 >> 3) }
+        unsafe { Rank::from_index_unchecked((self.0 >> 3) as usize) }
     }
 
-    pub const fn index(&self) -> u8 {
-        self.0
+    pub const fn index(&self) -> usize {
+        self.0 as usize
     }
 
-    pub const fn flipped_x(self) -> Coord {
+    pub const fn flipped_rank(self) -> Coord {
         Coord(self.0 ^ 56)
     }
 
-    pub const fn flipped_y(self) -> Coord {
+    pub const fn flipped_file(self) -> Coord {
         Coord(self.0 ^ 7)
     }
 
-    pub const fn diag1(&self) -> u8 {
+    pub const fn diag1(&self) -> usize {
         self.file().index() + self.rank().index()
     }
 
-    pub const fn diag2(&self) -> u8 {
+    pub const fn diag2(&self) -> usize {
         7 - self.file().index() + self.rank().index()
+    }
+
+    pub const fn add(self, delta: isize) -> Coord {
+        Coord::from_index(self.index().wrapping_add(delta as usize))
+    }
+
+    pub const unsafe fn add_unchecked(self, delta: isize) -> Coord {
+        Coord::from_index_unchecked(self.index().wrapping_add(delta as usize))
     }
 
     pub fn iter() -> impl Iterator<Item = Self> {
@@ -156,31 +202,26 @@ impl Coord {
 }
 
 impl Display for Coord {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(
-            f,
-            "{}{}",
-            (b'a' + self.file() as u8) as char,
-            (b'8' - self.rank() as u8) as char
-        )
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "{}{}", self.file().as_char(), self.rank().as_char())
     }
 }
 
 impl FromStr for Coord {
-    type Err = CoordError;
+    type Err = CoordParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() != 2 {
-            return Err(CoordError::BadLength);
+            return Err(CoordParseError::BadLength);
         }
         let bytes = s.as_bytes();
         let file = match bytes[0] {
-            b @ b'a'..=b'h' => unsafe { File::from_index_unchecked(b - b'a') },
-            b => return Err(CoordError::UnexpectedFile(b as char)),
+            b @ b'a'..=b'h' => unsafe { File::from_index_unchecked((b - b'a') as usize) },
+            b => return Err(CoordParseError::UnexpectedFileChar(b as char)),
         };
         let rank = match bytes[1] {
-            b @ b'1'..=b'8' => unsafe { Rank::from_index_unchecked(b'8' - b) },
-            b => return Err(CoordError::UnexpectedRank(b as char)),
+            b @ b'1'..=b'8' => unsafe { Rank::from_index_unchecked((b'8' - b) as usize) },
+            b => return Err(CoordParseError::UnexpectedRankChar(b as char)),
         };
         Ok(Coord::from_parts(file, rank))
     }
@@ -191,6 +232,48 @@ impl FromStr for Coord {
 pub enum Color {
     White = 0,
     Black = 1,
+}
+
+impl Color {
+    pub const fn inv(&self) -> Color {
+        match *self {
+            Color::White => Color::Black,
+            Color::Black => Color::White,
+        }
+    }
+
+    pub fn as_char(&self) -> char {
+        match *self {
+            Color::White => 'w',
+            Color::Black => 'b',
+        }
+    }
+
+    pub fn from_char(c: char) -> Option<Color> {
+        match c {
+            'w' => Some(Color::White),
+            'b' => Some(Color::Black),
+            _ => None,
+        }
+    }
+}
+
+impl Display for Color {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.as_char())
+    }
+}
+
+impl FromStr for Color {
+    type Err = ColorParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() != 1 {
+            return Err(ColorParseError::BadLength);
+        }
+        let ch = s.as_bytes()[0] as char;
+        Color::from_char(s.as_bytes()[0] as char).ok_or(ColorParseError::UnexpectedChar(ch))
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -204,28 +287,28 @@ pub enum Piece {
     Queen = 5,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Cell(u8);
 
 impl Cell {
     pub const EMPTY: Cell = Cell(0);
-    pub const MAX_INDEX: u8 = 13;
+    pub const MAX_INDEX: usize = 13;
 
     pub const fn is_empty(&self) -> bool {
         self.0 == 0
     }
 
-    pub const unsafe fn from_index_unchecked(val: u8) -> Cell {
-        Cell(val)
+    pub const unsafe fn from_index_unchecked(val: usize) -> Cell {
+        Cell(val as u8)
     }
 
-    pub const fn from_index(val: u8) -> Cell {
+    pub const fn from_index(val: usize) -> Cell {
         assert!(val < Self::MAX_INDEX, "index too large");
-        Cell(val)
+        Cell(val as u8)
     }
 
-    pub const fn index(&self) -> u8 {
-        self.0
+    pub const fn index(&self) -> usize {
+        self.0 as usize
     }
 
     pub const fn from_parts(c: Color, p: Piece) -> Cell {
@@ -263,40 +346,50 @@ impl Cell {
     pub fn as_char(&self) -> char {
         b".PKNBRQpknbrq"[self.0 as usize] as char
     }
+
+    pub fn as_utf8_char(&self) -> char {
+        [
+            '.', '♙', '♔', '♘', '♗', '♖', '♕', '♟', '♚', '♞', '♝', '♜', '♛',
+        ][self.0 as usize]
+    }
+
+    pub fn from_char(c: char) -> Option<Self> {
+        if c == '.' {
+            return Some(Cell::EMPTY);
+        }
+        let color = if c.is_ascii_uppercase() {
+            Color::White
+        } else {
+            Color::Black
+        };
+        let piece = match c.to_ascii_lowercase() {
+            'p' => Piece::Pawn,
+            'k' => Piece::King,
+            'n' => Piece::Knight,
+            'b' => Piece::Bishop,
+            'r' => Piece::Rook,
+            'q' => Piece::Queen,
+            _ => return None,
+        };
+        Some(Cell::from_parts(color, piece))
+    }
 }
 
 impl Display for Cell {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.as_char())
     }
 }
 
 impl FromStr for Cell {
-    type Err = CellError;
+    type Err = CellParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() != 1 {
-            return Err(CellError::BadLength);
+            return Err(CellParseError::BadLength);
         }
-        let b = s.as_bytes()[0];
-        if b == b'.' {
-            return Ok(Cell::EMPTY);
-        }
-        let color = if b.is_ascii_uppercase() {
-            Color::White
-        } else {
-            Color::Black
-        };
-        let piece = match b.to_ascii_lowercase() {
-            b'p' => Piece::Pawn,
-            b'k' => Piece::King,
-            b'n' => Piece::Knight,
-            b'b' => Piece::Bishop,
-            b'r' => Piece::Rook,
-            b'q' => Piece::Queen,
-            _ => return Err(CellError::UnexpectedCell(b as char)),
-        };
-        Ok(Cell::from_parts(color, piece))
+        let ch = s.as_bytes()[0] as char;
+        Cell::from_char(s.as_bytes()[0] as char).ok_or(CellParseError::UnexpectedChar(ch))
     }
 }
 
@@ -307,7 +400,7 @@ pub enum CastlingSide {
     King = 1,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct CastlingRights(u8);
 
 impl CastlingRights {
@@ -338,14 +431,92 @@ impl CastlingRights {
         self.0 &= !(1_u8 << Self::to_index(c, s))
     }
 
-    pub const fn from_raw(val: u8) -> CastlingRights {
+    pub const fn from_index(val: usize) -> CastlingRights {
         assert!(val < 16, "raw castling rights must be between 0 and 15");
-        CastlingRights(val)
+        CastlingRights(val as u8)
     }
 
-    pub const fn as_raw(&self) -> u8 {
-        self.0
+    pub const fn index(&self) -> usize {
+        self.0 as usize
     }
+}
+
+impl Display for CastlingRights {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        if *self == Self::EMPTY {
+            return write!(f, "-");
+        }
+        if self.has(Color::White, CastlingSide::King) {
+            write!(f, "K")?;
+        }
+        if self.has(Color::White, CastlingSide::Queen) {
+            write!(f, "Q")?;
+        }
+        if self.has(Color::Black, CastlingSide::King) {
+            write!(f, "k")?;
+        }
+        if self.has(Color::Black, CastlingSide::Queen) {
+            write!(f, "q")?;
+        }
+        Ok(())
+    }
+}
+
+impl FromStr for CastlingRights {
+    type Err = CastlingRightsParseError;
+
+    fn from_str(s: &str) -> Result<CastlingRights, Self::Err> {
+        type Error = CastlingRightsParseError;
+        if s == "-" {
+            return Ok(CastlingRights::EMPTY);
+        }
+        if s.is_empty() {
+            return Err(Error::EmptyString);
+        }
+        let mut res = CastlingRights::EMPTY;
+        for b in s.bytes() {
+            let (color, side) = match b {
+                b'K' => (Color::White, CastlingSide::King),
+                b'Q' => (Color::White, CastlingSide::Queen),
+                b'k' => (Color::Black, CastlingSide::King),
+                b'q' => (Color::Black, CastlingSide::Queen),
+                _ => return Err(Error::UnexpectedChar(b as char)),
+            };
+            if res.has(color, side) {
+                return Err(Error::DuplicateChar(b as char));
+            }
+            res.set(color, side);
+        }
+        Ok(res)
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum DrawKind {
+    Stalemate,
+    InsufficientMaterial,
+    Moves75,
+    Repeat5,
+    Moves50,
+    Repeat3,
+    Agreement,
+    Unknown,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum WinKind {
+    Checkmate,
+    TimeForfeit,
+    EngineError,
+    Resign,
+    Unknown,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Outcome {
+    White(WinKind),
+    Black(WinKind),
+    Draw(DrawKind),
 }
 
 #[cfg(test)]
@@ -355,16 +526,16 @@ mod tests {
     #[test]
     fn test_file() {
         for (idx, file) in File::iter().enumerate() {
-            assert_eq!(file.index(), idx as u8);
-            assert_eq!(File::from_index(idx as u8), file);
+            assert_eq!(file.index(), idx);
+            assert_eq!(File::from_index(idx), file);
         }
     }
 
     #[test]
     fn test_rank() {
         for (idx, rank) in Rank::iter().enumerate() {
-            assert_eq!(rank.index(), idx as u8);
-            assert_eq!(Rank::from_index(idx as u8), rank);
+            assert_eq!(rank.index(), idx);
+            assert_eq!(Rank::from_index(idx), rank);
         }
     }
 
@@ -412,12 +583,16 @@ mod tests {
         assert!(!empty.has(Color::White, CastlingSide::King));
         assert!(!empty.has(Color::Black, CastlingSide::Queen));
         assert!(!empty.has(Color::Black, CastlingSide::King));
+        assert_eq!(empty.to_string(), "-");
+        assert_eq!(CastlingRights::from_str("-"), Ok(empty));
 
         let full = CastlingRights::FULL;
         assert!(full.has(Color::White, CastlingSide::Queen));
         assert!(full.has(Color::White, CastlingSide::King));
         assert!(full.has(Color::Black, CastlingSide::Queen));
         assert!(full.has(Color::Black, CastlingSide::King));
+        assert_eq!(full.to_string(), "KQkq");
+        assert_eq!(CastlingRights::from_str("KQkq"), Ok(full));
 
         let mut rights = CastlingRights::EMPTY;
         rights.set(Color::White, CastlingSide::King);
@@ -425,6 +600,8 @@ mod tests {
         assert!(rights.has(Color::White, CastlingSide::King));
         assert!(!rights.has(Color::Black, CastlingSide::Queen));
         assert!(!rights.has(Color::Black, CastlingSide::King));
+        assert_eq!(rights.to_string(), "K");
+        assert_eq!(CastlingRights::from_str("K"), Ok(rights));
 
         rights.unset(Color::White, CastlingSide::King);
         rights.flip(Color::Black, CastlingSide::Queen);
@@ -432,6 +609,8 @@ mod tests {
         assert!(!rights.has(Color::White, CastlingSide::King));
         assert!(rights.has(Color::Black, CastlingSide::Queen));
         assert!(!rights.has(Color::Black, CastlingSide::King));
+        assert_eq!(rights.to_string(), "q");
+        assert_eq!(CastlingRights::from_str("q"), Ok(rights));
     }
 
     #[test]

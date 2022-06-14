@@ -25,6 +25,16 @@ dependencies = [
 name = "owlchess"
 version = "0.1.0"
 dependencies = [
+ "owlchess_base",
+ "rand_core",
+ "rand_xoshiro",
+ "thiserror",
+]
+
+[[package]]
+name = "owlchess_base"
+version = "0.1.0"
+dependencies = [
  "derive_more",
  "thiserror",
 ]
@@ -45,6 +55,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1feb54ed693b93a84e14094943b84b7c4eae204c512b7ccb95ab0c66d278ad1"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "rand_core"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d34f1408f55294453790c48b2f1ebbb1c5b4b7563eb1f418bcfcfdbb06ebb4e7"
+
+[[package]]
+name = "rand_xoshiro"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f97cdb2a36ed4183de61b2f824cc45c9f1037f28afe0a322e9fff4c108b5aaa"
+dependencies = [
+ "rand_core",
 ]
 
 [[package]]

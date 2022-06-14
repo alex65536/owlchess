@@ -1,0 +1,8 @@
+[package]
+name = "owlchess_base"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "1.0.31"
+derive_more = "0.99.17"

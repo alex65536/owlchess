@@ -1,5 +1,14 @@
-pub mod bitboard;
-pub mod types;
+pub use owlchess_base::bitboard;
+pub use owlchess_base::geometry;
+pub use owlchess_base::types;
 
-pub use types::{File, Rank, Coord, Color, Piece, Cell, CastlingSide, CastlingRights};
+pub mod bitboard_consts;
+pub mod board;
+
+mod zobrist;
+
 pub use bitboard::Bitboard;
+pub use board::{Board, RawBoard};
+pub use types::{
+    CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, Outcome, Piece, Rank, WinKind,
+};
