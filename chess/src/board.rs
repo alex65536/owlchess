@@ -624,8 +624,8 @@ struct AsciiStyleTable;
 struct Utf8StyleTable;
 
 impl StyleTable for AsciiStyleTable {
-    const HORZ_FRAME: char = '|';
-    const VERT_FRAME: char = '-';
+    const HORZ_FRAME: char = '-';
+    const VERT_FRAME: char = '|';
     const ANGLE_FRAME: char = '+';
     const WHITE_INDICATOR: char = 'W';
     const BLACK_INDICATOR: char = 'B';
@@ -636,8 +636,8 @@ impl StyleTable for AsciiStyleTable {
 }
 
 impl StyleTable for Utf8StyleTable {
-    const HORZ_FRAME: char = '│';
-    const VERT_FRAME: char = '─';
+    const HORZ_FRAME: char = '─';
+    const VERT_FRAME: char = '│';
     const ANGLE_FRAME: char = '┼';
     const WHITE_INDICATOR: char = '○';
     const BLACK_INDICATOR: char = '●';

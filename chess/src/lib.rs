@@ -8,7 +8,7 @@ pub mod board;
 mod zobrist;
 
 pub use bitboard::Bitboard;
-pub use board::{Board, RawBoard};
+pub use board::{Board, RawBoard, PrettyStyle};
 pub use types::{
     CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, Outcome, Piece, Rank, WinKind,
 };
