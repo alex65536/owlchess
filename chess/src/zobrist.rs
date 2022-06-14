@@ -1,9 +1,13 @@
-use crate::types::{Color, Cell, Coord, CastlingRights, CastlingSide};
+use crate::types::{CastlingRights, CastlingSide, Cell, Color, Coord};
 
 include!(concat!(env!("OUT_DIR"), "/zobrist.rs"));
 
 pub fn pieces(cell: Cell, coord: Coord) -> u64 {
-    unsafe { *PIECES.get_unchecked(cell.index()).get_unchecked(coord.index()) }
+    unsafe {
+        *PIECES
+            .get_unchecked(cell.index())
+            .get_unchecked(coord.index())
+    }
 }
 
 pub fn enpassant(coord: Coord) -> u64 {

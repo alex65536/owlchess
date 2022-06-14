@@ -1,4 +1,5 @@
 use crate::bitboard::Bitboard;
+use crate::chess_move::{self, Move};
 use crate::types::{
     self, CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, Piece, Rank,
 };
@@ -139,7 +140,9 @@ impl RawBoard {
     }
 
     pub fn put(&mut self, c: Coord, cell: Cell) {
-        unsafe { *self.cells.get_unchecked_mut(c.index()) = cell; }
+        unsafe {
+            *self.cells.get_unchecked_mut(c.index()) = cell;
+        }
     }
 
     pub fn put2(&mut self, file: File, rank: Rank, cell: Cell) {
@@ -157,7 +160,7 @@ impl RawBoard {
         }
         hash ^= zobrist::castling(self.castling);
         for (i, cell) in self.cells.iter().enumerate() {
-            if !cell.is_empty() {
+            if cell.is_occupied() {
                 hash ^= zobrist::pieces(*cell, Coord::from_index(i));
             }
         }
@@ -181,7 +184,7 @@ impl Default for RawBoard {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Board {
-    r: RawBoard,
+    pub(crate) r: RawBoard,
     pub(crate) hash: u64,
     pub(crate) white: Bitboard,
     pub(crate) black: Bitboard,
@@ -210,7 +213,7 @@ impl Board {
         self.r.get2(file, rank)
     }
 
-    pub(crate) fn color(&self, c: Color) -> &Bitboard {
+    pub fn color(&self, c: Color) -> &Bitboard {
         if c == Color::White {
             &self.white
         } else {
@@ -226,20 +229,16 @@ impl Board {
         }
     }
 
-    pub(crate) fn piece(&self, c: Cell) -> Bitboard {
+    pub fn piece(&self, c: Cell) -> Bitboard {
         unsafe { *self.pieces.get_unchecked(c.index()) }
     }
 
-    pub(crate) fn piece2(&self, c: Color, p: Piece) -> Bitboard {
+    pub fn piece2(&self, c: Color, p: Piece) -> Bitboard {
         self.piece(Cell::from_parts(c, p))
     }
 
     pub(crate) fn piece_mut(&mut self, c: Cell) -> &mut Bitboard {
         unsafe { self.pieces.get_unchecked_mut(c.index()) }
-    }
-
-    pub(crate) fn piece2_mut(&mut self, c: Color, p: Piece) -> &mut Bitboard {
-        self.piece_mut(Cell::from_parts(c, p))
     }
 
     pub fn king_pos(&self, c: Color) -> Coord {
@@ -253,14 +252,31 @@ impl Board {
         self.hash
     }
 
+    pub fn semi_validate_move(&self, mv: Move) -> Result<(), chess_move::ValidateError> {
+        chess_move::semi_validate(self, mv)
+    }
+
+    pub fn make_move_weak(&self, mv: Move) -> Result<Self, chess_move::ValidateError> {
+        chess_move::make_move_weak(self, mv)
+    }
+
+    pub fn make_move(&self, mv: Move) -> Result<Self, chess_move::ValidateError> {
+        chess_move::make_move(self, mv)
+    }
+
+    pub fn is_opponent_king_attacked(&self) -> bool {
+        // TODO
+        return false;
+    }
+
     fn is_insufficient_material(&self) -> bool {
         let all_without_kings = self.all
             ^ (self.piece2(Color::White, Piece::King) | self.piece2(Color::Black, Piece::King));
 
         // If we have pieces on both white and black squares, then no draw occurs. This cutoff
         // optimizes the function in most positions.
-        if !(all_without_kings & bitboard_consts::CELLS_WHITE).is_empty()
-            && !(all_without_kings & bitboard_consts::CELLS_BLACK).is_empty()
+        if (all_without_kings & bitboard_consts::CELLS_WHITE).is_nonempty()
+            && (all_without_kings & bitboard_consts::CELLS_BLACK).is_nonempty()
         {
             return false;
         }
@@ -392,22 +408,34 @@ impl TryFrom<RawBoard> for Board {
             | pieces[Cell::from_parts(Color::Black, Piece::Pawn).index()];
         const BAD_PAWN_POSES: Bitboard = Bitboard::from_raw(0xff000000000000ff);
         let bad_pawns = pawns & BAD_PAWN_POSES;
-        if !bad_pawns.is_empty() {
+        if bad_pawns.is_nonempty() {
             return Err(ValidateError::InvalidPawn(
                 bad_pawns.into_iter().next().unwrap(),
             ));
         }
 
-        // TODO : check for OpponentKingAttacked
-
-        Ok(Board {
+        // Check OpponentKingAttacked
+        let res = Board {
             r: raw,
             hash: raw.zobrist_hash(),
             white,
             black,
             all: white | black,
             pieces,
-        })
+        };
+        if res.is_opponent_king_attacked() {
+            return Err(ValidateError::OpponentKingAttacked);
+        }
+
+        Ok(res)
+    }
+}
+
+impl TryFrom<&RawBoard> for Board {
+    type Error = ValidateError;
+
+    fn try_from(raw: &RawBoard) -> Result<Board, ValidateError> {
+        (*raw).try_into()
     }
 }
 
@@ -657,7 +685,7 @@ impl<'a> Display for Pretty<'a> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use std::mem;
 

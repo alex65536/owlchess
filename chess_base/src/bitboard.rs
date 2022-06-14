@@ -1,10 +1,9 @@
 use crate::types::Coord;
 use derive_more::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
-use std::fmt::{self, Display};
+use std::fmt;
 use std::iter::IntoIterator;
 
 #[derive(
-    Debug,
     Default,
     Copy,
     Clone,
@@ -59,6 +58,10 @@ impl Bitboard {
     pub const fn is_empty(&self) -> bool {
         self.0 == 0
     }
+
+    pub const fn is_nonempty(&self) -> bool {
+        self.0 != 0
+    }
 }
 
 impl From<Bitboard> for u64 {
@@ -73,7 +76,13 @@ impl From<u64> for Bitboard {
     }
 }
 
-impl Display for Bitboard {
+impl fmt::Debug for Bitboard {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "Bitboard({})", self)
+    }
+}
+
+impl fmt::Display for Bitboard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let v = self.0.reverse_bits();
         write!(
@@ -117,7 +126,7 @@ impl IntoIterator for Bitboard {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::types::{Coord, File, Rank};
 

@@ -85,7 +85,7 @@ impl File {
     }
 }
 
-impl Display for File {
+impl fmt::Display for File {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.as_char())
     }
@@ -137,13 +137,13 @@ impl Rank {
     }
 }
 
-impl Display for Rank {
+impl fmt::Display for Rank {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.as_char())
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Coord(u8);
 
 impl Coord {
@@ -201,7 +201,17 @@ impl Coord {
     }
 }
 
-impl Display for Coord {
+impl fmt::Debug for Coord {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        if self.0 < 64 {
+            return write!(f, "Coord({})", self);
+        }
+        write!(f, "Coord(?{:?})", self.0)
+    }
+}
+
+
+impl fmt::Display for Coord {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}{}", self.file().as_char(), self.rank().as_char())
     }
@@ -287,7 +297,7 @@ pub enum Piece {
     Queen = 5,
 }
 
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Cell(u8);
 
 impl Cell {
@@ -296,6 +306,10 @@ impl Cell {
 
     pub const fn is_empty(&self) -> bool {
         self.0 == 0
+    }
+
+    pub const fn is_occupied(&self) -> bool {
+        self.0 != 0
     }
 
     pub const unsafe fn from_index_unchecked(val: usize) -> Cell {
@@ -375,7 +389,16 @@ impl Cell {
     }
 }
 
-impl Display for Cell {
+impl fmt::Debug for Cell {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        if (self.0 as usize) < Self::MAX_INDEX {
+            return write!(f, "Cell({})", self.as_char())
+        }
+        write!(f, "Cell(?{:?})", self.0)
+    }
+}
+
+impl fmt::Display for Cell {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.as_char())
     }
@@ -400,7 +423,7 @@ pub enum CastlingSide {
     King = 1,
 }
 
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct CastlingRights(u8);
 
 impl CastlingRights {
@@ -431,6 +454,11 @@ impl CastlingRights {
         self.0 &= !(1_u8 << Self::to_index(c, s))
     }
 
+    pub fn unset_color(&mut self, c: Color) {
+        self.unset(c, CastlingSide::King);
+        self.unset(c, CastlingSide::Queen);
+    }
+
     pub const fn from_index(val: usize) -> CastlingRights {
         assert!(val < 16, "raw castling rights must be between 0 and 15");
         CastlingRights(val as u8)
@@ -441,7 +469,17 @@ impl CastlingRights {
     }
 }
 
-impl Display for CastlingRights {
+
+impl fmt::Debug for CastlingRights {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        if self.0 < 16 {
+            return write!(f, "CastlingRights({})", self);
+        }
+        write!(f, "CastlingRights(?{:?})", self.0)
+    }
+}
+
+impl fmt::Display for CastlingRights {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         if *self == Self::EMPTY {
             return write!(f, "-");
