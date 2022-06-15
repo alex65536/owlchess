@@ -121,11 +121,11 @@ impl Move {
         Self::try_new(kind, src, dst, side).expect("move is not well-formed")
     }
 
-    pub fn from_str_basic(s: &str, b: &Board) -> Result<Move, BasicParseError> {
+    pub fn from_str(s: &str, b: &Board) -> Result<Move, BasicParseError> {
         Ok(ParsedMove::from_str(s)?.into_move(b)?)
     }
 
-    pub fn from_str(s: &str, b: &Board) -> Result<Move, ParseError> {
+    pub fn from_str_semilegal(s: &str, b: &Board) -> Result<Move, ParseError> {
         let res = ParsedMove::from_str(s)?.into_move(b)?;
         res.semi_validate(b)?;
         Ok(res)
@@ -842,7 +842,7 @@ mod tests {
                 "r1bqkb1r/pppp1ppp/2n5/1B2p3/4n3/5N2/PPPP1PPP/RNBQ1RK1 w kq - 0 5",
             ),
         ] {
-            let m = Move::from_str(mv_str, &b).unwrap();
+            let m = Move::from_str_semilegal(mv_str, &b).unwrap();
             b = b.make_move(m).unwrap();
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
@@ -875,7 +875,7 @@ mod tests {
                 "r1bqk2r/ppp2ppp/2np1n2/1Bb1p3/2P1P3/3P1N2/PP3PPP/RNBQK2R b KQkq - 0 6",
             ),
         ] {
-            let m = Move::from_str(mv_str, &b).unwrap();
+            let m = Move::from_str_semilegal(mv_str, &b).unwrap();
             let u = unsafe { make_legal_move_unchecked(&mut b, m).unwrap() };
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
@@ -896,7 +896,7 @@ mod tests {
             ("d5e6", "3K4/3p4/4P3/5P2/8/5p2/6P1/2k5 b - - 0 1"),
             ("f5e6", "3K4/3p4/4P3/3P4/8/5p2/6P1/2k5 b - - 0 1"),
         ] {
-            let m = Move::from_str(mv_str, &b).unwrap();
+            let m = Move::from_str_semilegal(mv_str, &b).unwrap();
             let u = unsafe { make_legal_move_unchecked(&mut b, m).unwrap() };
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
@@ -912,25 +912,25 @@ mod tests {
         )
         .unwrap();
 
-        let m = Move::from_str_basic("e1c1", &b).unwrap();
+        let m = Move::from_str("e1c1", &b).unwrap();
         dbg!(m);
         assert!(!is_move_sane(&b, m));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSane));
 
-        let m = Move::from_str_basic("b5e8", &b).unwrap();
+        let m = Move::from_str("b5e8", &b).unwrap();
         assert!(!is_move_sane(&b, m));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSane));
 
-        let m = Move::from_str_basic("a3a4", &b).unwrap();
+        let m = Move::from_str("a3a4", &b).unwrap();
         assert!(!is_move_sane(&b, m));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSane));
 
-        let m = Move::from_str_basic("e1d1", &b).unwrap();
+        let m = Move::from_str("e1d1", &b).unwrap();
         assert!(!is_move_sane(&b, m));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSane));
 
         assert_eq!(
-            Move::from_str_basic("c3c5", &b),
+            Move::from_str("c3c5", &b),
             Err(BasicParseError::Create(CreateError::NotWellFormed))
         );
     }
