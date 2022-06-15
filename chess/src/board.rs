@@ -266,7 +266,7 @@ impl Board {
 
     pub fn is_opponent_king_attacked(&self) -> bool {
         // TODO
-        return false;
+        false
     }
 
     fn is_insufficient_material(&self) -> bool {
@@ -539,7 +539,7 @@ impl FromStr for RawBoard {
             None => 1,
         };
 
-        if let Some(_) = iter.next() {
+        if iter.next().is_some() {
             return Err(Error::ExtraData);
         }
 

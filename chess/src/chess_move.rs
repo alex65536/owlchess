@@ -313,7 +313,7 @@ impl ParsedMove {
         Move::try_new(kind, self.src, self.dst, C::COLOR)
     }
 
-    fn into_move(&self, b: &Board) -> Result<Move, CreateError> {
+    fn into_move(self, b: &Board) -> Result<Move, CreateError> {
         match b.r.side {
             Color::White => self.do_into_move::<colors::White>(b),
             Color::Black => self.do_into_move::<colors::Black>(b),
@@ -715,21 +715,17 @@ fn do_is_move_sane<C: colors::Color>(b: &Board, mv: Move) -> bool {
         }
     }
     match mv.kind {
-        MoveKind::Null => {
-            return true;
-        }
+        MoveKind::Null => true,
         MoveKind::CastlingKingside => {
-            return b.r.castling.has(C::COLOR, CastlingSide::King)
-                && (b.all & castling_pass(C::COLOR, CastlingSide::King)).is_empty();
+            b.r.castling.has(C::COLOR, CastlingSide::King)
+                && (b.all & castling_pass(C::COLOR, CastlingSide::King)).is_empty()
         }
         MoveKind::CastlingQueenside => {
-            return b.r.castling.has(C::COLOR, CastlingSide::Queen)
-                && (b.all & castling_pass(C::COLOR, CastlingSide::Queen)).is_empty();
+            b.r.castling.has(C::COLOR, CastlingSide::Queen)
+                && (b.all & castling_pass(C::COLOR, CastlingSide::Queen)).is_empty()
         }
         MoveKind::Simple => {
-            return (dst & bad_dsts).is_empty()
-                && src_cell.color() == Some(C::COLOR)
-                && src_cell != pawn;
+            (dst & bad_dsts).is_empty() && src_cell.color() == Some(C::COLOR) && src_cell != pawn
         }
         kind => {
             // This is a pawn move
@@ -745,20 +741,20 @@ fn do_is_move_sane<C: colors::Color>(b: &Board, mv: Move) -> bool {
                                     == p.add_unchecked(geometry::pawn_forward_delta(C::COLOR));
                         }
                     }
-                    return false;
+                    false
                 }
                 MoveKind::PawnDouble => {
                     let must_empty = match C::COLOR {
                         Color::White => Bitboard::from_raw(0x0101 << (mv.src.index() - 16)),
                         Color::Black => Bitboard::from_raw(0x010100 << mv.src.index()),
                     };
-                    return (b.all & must_empty).is_empty();
+                    (b.all & must_empty).is_empty()
                 }
                 MoveKind::PawnSimple
                 | MoveKind::PromoteKnight
                 | MoveKind::PromoteBishop
                 | MoveKind::PromoteRook
-                | MoveKind::PromoteQueen => return true,
+                | MoveKind::PromoteQueen => true,
                 MoveKind::Null
                 | MoveKind::CastlingKingside
                 | MoveKind::CastlingQueenside
@@ -777,7 +773,7 @@ pub fn is_move_sane(b: &Board, mv: Move) -> bool {
 
 fn do_is_move_semilegal(_b: &Board, _mv: Move) -> bool {
     // TODO
-    return true;
+    true
 }
 
 pub fn semi_validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
