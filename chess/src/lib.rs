@@ -2,11 +2,13 @@ pub use owlchess_base::bitboard;
 pub use owlchess_base::types;
 
 pub mod board;
+pub mod movegen;
 pub mod moves;
 
 use owlchess_base::bitboard_consts;
 use owlchess_base::geometry;
 
+mod attack;
 mod zobrist;
 
 pub use bitboard::Bitboard;

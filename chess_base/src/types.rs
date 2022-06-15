@@ -196,6 +196,20 @@ impl Coord {
         Coord::from_index_unchecked(self.index().wrapping_add(delta as usize))
     }
 
+    pub fn try_shift(self, delta_file: isize, delta_rank: isize) -> Option<Coord> {
+        let new_file = self.file().index().wrapping_add(delta_file as usize);
+        let new_rank = self.rank().index().wrapping_add(delta_rank as usize);
+        if new_file >= 8 || new_rank >= 8 {
+            return None;
+        }
+        unsafe {
+            Some(Coord::from_parts(
+                File::from_index_unchecked(new_file),
+                Rank::from_index_unchecked(new_rank),
+            ))
+        }
+    }
+
     pub fn iter() -> impl Iterator<Item = Self> {
         (0_u8..64_u8).map(Coord)
     }
@@ -209,7 +223,6 @@ impl fmt::Debug for Coord {
         write!(f, "Coord(?{:?})", self.0)
     }
 }
-
 
 impl fmt::Display for Coord {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
@@ -392,7 +405,7 @@ impl Cell {
 impl fmt::Debug for Cell {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         if (self.0 as usize) < Self::MAX_INDEX {
-            return write!(f, "Cell({})", self.as_char())
+            return write!(f, "Cell({})", self.as_char());
         }
         write!(f, "Cell(?{:?})", self.0)
     }
@@ -468,7 +481,6 @@ impl CastlingRights {
         self.0 as usize
     }
 }
-
 
 impl fmt::Debug for CastlingRights {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {

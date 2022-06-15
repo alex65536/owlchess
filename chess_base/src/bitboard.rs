@@ -39,12 +39,30 @@ impl Bitboard {
         Bitboard(self.0 & !(1_u64 << coord.index()))
     }
 
+    pub fn deposit_bits(&self, mut x: u64) -> Bitboard {
+        let mut res: u64 = 0;
+        let mut msk = self.0;
+        while msk != 0 {
+            let bit = msk & msk.wrapping_neg();
+            if (x & 1) != 0 {
+                res |= bit;
+            }
+            msk ^= bit;
+            x >>= 1;
+        }
+        Bitboard(res)
+    }
+
     pub fn set(&mut self, coord: Coord) {
         *self = self.with(coord);
     }
 
     pub fn unset(&mut self, coord: Coord) {
         *self = self.without(coord);
+    }
+
+    pub const fn has(&self, coord: Coord) -> bool {
+        ((self.0 >> coord.index()) & 1) != 0
     }
 
     pub const fn as_raw(&self) -> u64 {

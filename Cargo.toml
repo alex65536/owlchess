@@ -4,3 +4,9 @@ members = [
     "chess/",
     "chess_base/",
 ]
+
+[profile.dev.build-override]
+opt-level = 1
+
+[profile.release.build-override]
+opt-level = 1
