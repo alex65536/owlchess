@@ -3,7 +3,7 @@ use crate::board::Board;
 use crate::types::{
     CastlingRights, CastlingSide, Cell, Color, Coord, CoordParseError, File, Piece, Rank,
 };
-use crate::{geometry, zobrist};
+use crate::{geometry, generic, zobrist};
 
 use std::fmt;
 use std::str::FromStr;
@@ -283,7 +283,7 @@ pub struct ParsedMove {
 }
 
 impl ParsedMove {
-    fn do_into_move<C: colors::Color>(&self, b: &Board) -> Result<Move, CreateError> {
+    fn do_into_move<C: generic::Color>(&self, b: &Board) -> Result<Move, CreateError> {
         if self.kind == Some(MoveKind::Null) {
             return Ok(Move::NULL);
         }
@@ -323,8 +323,8 @@ impl ParsedMove {
 
     pub fn into_move(self, b: &Board) -> Result<Move, CreateError> {
         match b.r.side {
-            Color::White => self.do_into_move::<colors::White>(b),
-            Color::Black => self.do_into_move::<colors::Black>(b),
+            Color::White => self.do_into_move::<generic::White>(b),
+            Color::Black => self.do_into_move::<generic::Black>(b),
         }
     }
 }
@@ -367,28 +367,6 @@ pub struct RawUndo {
     castling: CastlingRights,
     enpassant: Option<Coord>,
     move_counter: u16,
-}
-
-mod colors {
-    use crate::types;
-
-    pub trait Color {
-        const COLOR: types::Color;
-        const CASTLING_OFFSET: usize;
-    }
-
-    pub struct White;
-    pub struct Black;
-
-    impl Color for White {
-        const COLOR: types::Color = types::Color::White;
-        const CASTLING_OFFSET: usize = 56;
-    }
-
-    impl Color for Black {
-        const COLOR: types::Color = types::Color::Black;
-        const CASTLING_OFFSET: usize = 0;
-    }
 }
 
 trait MakeMoveImpl {
@@ -444,7 +422,7 @@ fn update_castling(b: &mut Board, change: Bitboard) {
 }
 
 #[inline]
-fn do_make_pawn_double<C: colors::Color>(b: &mut Board, mv: Move, change: Bitboard, inv: bool) {
+fn do_make_pawn_double<C: generic::Color>(b: &mut Board, mv: Move, change: Bitboard, inv: bool) {
     let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
     if inv {
         b.r.put(mv.src, pawn);
@@ -470,7 +448,7 @@ unsafe fn enpassant_pawn_pos_unchecked(c: Color, dst: Coord) -> Coord {
 }
 
 #[inline]
-fn do_make_enpassant<C: colors::Color>(b: &mut Board, mv: Move, change: Bitboard, inv: bool) {
+fn do_make_enpassant<C: generic::Color>(b: &mut Board, mv: Move, change: Bitboard, inv: bool) {
     let taken_pos = unsafe { enpassant_pawn_pos_unchecked(C::COLOR, mv.dst) };
     let taken = Bitboard::from_coord(taken_pos);
     let our_pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
@@ -494,7 +472,7 @@ fn do_make_enpassant<C: colors::Color>(b: &mut Board, mv: Move, change: Bitboard
 }
 
 #[inline]
-fn do_make_castling_kingside<C: colors::Color>(b: &mut Board, inv: bool) {
+fn do_make_castling_kingside<C: generic::Color>(b: &mut Board, inv: bool) {
     let king = Cell::from_parts(C::COLOR, Piece::King);
     let rook = Cell::from_parts(C::COLOR, Piece::Rook);
     let rank = geometry::castling_rank(C::COLOR);
@@ -521,7 +499,7 @@ fn do_make_castling_kingside<C: colors::Color>(b: &mut Board, inv: bool) {
 }
 
 #[inline]
-fn do_make_castling_queenside<C: colors::Color>(b: &mut Board, inv: bool) {
+fn do_make_castling_queenside<C: generic::Color>(b: &mut Board, inv: bool) {
     let king = Cell::from_parts(C::COLOR, Piece::King);
     let rook = Cell::from_parts(C::COLOR, Piece::Rook);
     let rank = geometry::castling_rank(C::COLOR);
@@ -547,7 +525,7 @@ fn do_make_castling_queenside<C: colors::Color>(b: &mut Board, inv: bool) {
     }
 }
 
-fn do_make_move<C: colors::Color>(b: &mut Board, mv: Move) -> RawUndo {
+fn do_make_move<C: generic::Color>(b: &mut Board, mv: Move) -> RawUndo {
     let src_cell = b.get(mv.src);
     let dst_cell = b.get(mv.dst);
     let undo = RawUndo {
@@ -628,7 +606,7 @@ fn do_make_move<C: colors::Color>(b: &mut Board, mv: Move) -> RawUndo {
     undo
 }
 
-fn do_unmake_move<C: colors::Color>(b: &mut Board, mv: Move, u: RawUndo) {
+fn do_unmake_move<C: generic::Color>(b: &mut Board, mv: Move, u: RawUndo) {
     let src = Bitboard::from_coord(mv.src);
     let dst = Bitboard::from_coord(mv.dst);
     let change = src | dst;
@@ -691,15 +669,15 @@ fn do_unmake_move<C: colors::Color>(b: &mut Board, mv: Move, u: RawUndo) {
 
 pub unsafe fn make_move_unchecked(b: &mut Board, mv: Move) -> RawUndo {
     match b.r.side {
-        Color::White => do_make_move::<colors::White>(b, mv),
-        Color::Black => do_make_move::<colors::Black>(b, mv),
+        Color::White => do_make_move::<generic::White>(b, mv),
+        Color::Black => do_make_move::<generic::Black>(b, mv),
     }
 }
 
 pub unsafe fn unmake_move_unchecked(b: &mut Board, mv: Move, u: RawUndo) {
     match b.r.side {
-        Color::White => do_unmake_move::<colors::Black>(b, mv, u),
-        Color::Black => do_unmake_move::<colors::White>(b, mv, u),
+        Color::White => do_unmake_move::<generic::Black>(b, mv, u),
+        Color::Black => do_unmake_move::<generic::White>(b, mv, u),
     }
 }
 
@@ -712,7 +690,7 @@ pub unsafe fn make_legal_move_unchecked(b: &mut Board, mv: Move) -> Result<RawUn
     Ok(u)
 }
 
-fn do_is_move_sane<C: colors::Color>(b: &Board, mv: Move) -> bool {
+fn do_is_move_sane<C: generic::Color>(b: &Board, mv: Move) -> bool {
     let src_cell = b.get(mv.src);
     let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
     let dst = Bitboard::from_coord(mv.dst);
@@ -774,8 +752,8 @@ fn do_is_move_sane<C: colors::Color>(b: &Board, mv: Move) -> bool {
 
 pub fn is_move_sane(b: &Board, mv: Move) -> bool {
     match b.r.side {
-        Color::White => do_is_move_sane::<colors::White>(b, mv),
-        Color::Black => do_is_move_sane::<colors::Black>(b, mv),
+        Color::White => do_is_move_sane::<generic::White>(b, mv),
+        Color::Black => do_is_move_sane::<generic::Black>(b, mv),
     }
 }
 

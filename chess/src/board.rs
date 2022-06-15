@@ -3,7 +3,7 @@ use crate::moves::{self, Move};
 use crate::types::{
     self, CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, Piece, Rank,
 };
-use crate::{bitboard_consts, geometry, zobrist};
+use crate::{bitboard_consts, geometry, movegen, zobrist};
 
 use std::fmt::{self, Display};
 use std::num::ParseIntError;
@@ -261,8 +261,13 @@ impl Board {
     }
 
     pub fn is_opponent_king_attacked(&self) -> bool {
-        // TODO
-        false
+        let c = self.r.side;
+        movegen::is_cell_attacked(self, self.king_pos(c.inv()), c)
+    }
+
+    pub fn is_check(&self) -> bool {
+        let c = self.r.side;
+        movegen::is_cell_attacked(self, self.king_pos(c), c.inv())
     }
 
     fn is_insufficient_material(&self) -> bool {

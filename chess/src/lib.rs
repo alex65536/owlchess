@@ -9,6 +9,7 @@ use owlchess_base::bitboard_consts;
 use owlchess_base::geometry;
 
 mod attack;
+mod generic;
 mod zobrist;
 
 pub use bitboard::Bitboard;
