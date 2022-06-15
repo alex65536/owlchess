@@ -1,5 +1,5 @@
 use crate::bitboard::Bitboard;
-use crate::chess_move::{self, Move};
+use crate::moves::{self, Move};
 use crate::types::{
     self, CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, Piece, Rank,
 };
@@ -252,16 +252,12 @@ impl Board {
         self.hash
     }
 
-    pub fn semi_validate_move(&self, mv: Move) -> Result<(), chess_move::ValidateError> {
-        chess_move::semi_validate(self, mv)
+    pub fn make_move_weak(&self, mv: Move) -> Result<Self, moves::ValidateError> {
+        moves::make_move_weak(self, mv)
     }
 
-    pub fn make_move_weak(&self, mv: Move) -> Result<Self, chess_move::ValidateError> {
-        chess_move::make_move_weak(self, mv)
-    }
-
-    pub fn make_move(&self, mv: Move) -> Result<Self, chess_move::ValidateError> {
-        chess_move::make_move(self, mv)
+    pub fn make_move(&self, mv: Move) -> Result<Self, moves::ValidateError> {
+        moves::make_move(self, mv)
     }
 
     pub fn is_opponent_king_attacked(&self) -> bool {
