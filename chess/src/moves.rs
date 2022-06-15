@@ -83,13 +83,21 @@ pub enum RawParseError {
 }
 
 #[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
+pub enum BasicParseError {
+    #[error("cannot parse move: {0}")]
+    Parse(#[from] RawParseError),
+    #[error("cannot create move: {0}")]
+    Create(#[from] CreateError),
+}
+
+#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
 pub enum ParseError {
     #[error("cannot parse move: {0}")]
     Parse(#[from] RawParseError),
     #[error("cannot create move: {0}")]
     Create(#[from] CreateError),
     #[error("invalid move: {0}")]
-    Valid(#[from] ValidateError),
+    Validate(#[from] ValidateError),
 }
 
 impl Move {
@@ -113,12 +121,12 @@ impl Move {
         Self::try_new(kind, src, dst, side).expect("move is not well-formed")
     }
 
-    pub fn from_str_basic(s: &str, b: &Board) -> Result<Move, ParseError> {
+    pub fn from_str_basic(s: &str, b: &Board) -> Result<Move, BasicParseError> {
         Ok(ParsedMove::from_str(s)?.into_move(b)?)
     }
 
     pub fn from_str(s: &str, b: &Board) -> Result<Move, ParseError> {
-        let res = Self::from_str_basic(s, b)?;
+        let res = ParsedMove::from_str(s)?.into_move(b)?;
         res.semi_validate(b)?;
         Ok(res)
     }
@@ -313,7 +321,7 @@ impl ParsedMove {
         Move::try_new(kind, self.src, self.dst, C::COLOR)
     }
 
-    fn into_move(self, b: &Board) -> Result<Move, CreateError> {
+    pub fn into_move(self, b: &Board) -> Result<Move, CreateError> {
         match b.r.side {
             Color::White => self.do_into_move::<colors::White>(b),
             Color::Black => self.do_into_move::<colors::Black>(b),
@@ -945,7 +953,7 @@ mod tests {
 
         assert_eq!(
             Move::from_str_basic("c3c5", &b),
-            Err(ParseError::Create(CreateError::NotWellFormed))
+            Err(BasicParseError::Create(CreateError::NotWellFormed))
         );
     }
 }

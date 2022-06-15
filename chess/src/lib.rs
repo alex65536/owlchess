@@ -11,7 +11,7 @@ mod zobrist;
 
 pub use bitboard::Bitboard;
 pub use board::{Board, PrettyStyle, RawBoard};
-pub use moves::{Move, MoveKind};
+pub use moves::{Move, MoveKind, ParsedMove};
 pub use types::{
     CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, Outcome, Piece, Rank, WinKind,
 };
