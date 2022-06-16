@@ -1,6 +1,6 @@
 use crate::board::{self, Board};
 use crate::moves::{self, Move, RawUndo, ValidateError};
-use crate::types::{DrawKind, Outcome};
+use crate::types::{DrawKind, Outcome, OutcomeFilter};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -135,10 +135,10 @@ impl<R: Repeat> BaseMoveChain<R> {
         self.board.calc_outcome()
     }
 
-    pub fn set_auto_outcome(&mut self, with_declare: bool) -> Option<Outcome> {
+    pub fn set_auto_outcome(&mut self, filter: OutcomeFilter) -> Option<Outcome> {
         assert!(!self.is_finished());
         if let Some(outcome) = self.calc_outcome() {
-            if outcome.is_auto(with_declare) {
+            if outcome.is_auto(filter) {
                 self.set_outcome(outcome);
             }
         }

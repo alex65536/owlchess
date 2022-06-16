@@ -569,6 +569,13 @@ pub enum Outcome {
     Draw(DrawKind),
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum OutcomeFilter {
+    Force,
+    Strict,
+    Relaxed,
+}
+
 impl Outcome {
     pub fn winner(&self) -> Option<Color> {
         match self {
@@ -594,17 +601,20 @@ impl Outcome {
         )
     }
 
-    pub fn is_auto(&self, with_declare: bool) -> bool {
+    pub fn is_auto(&self, filter: OutcomeFilter) -> bool {
         if self.is_force() {
             return true;
         }
-        if matches!(
-            *self,
-            Self::Draw(DrawKind::InsufficientMaterial | DrawKind::Moves75 | DrawKind::Repeat5)
-        ) {
+        if matches!(filter, OutcomeFilter::Strict | OutcomeFilter::Relaxed)
+            && matches!(
+                *self,
+                Self::Draw(DrawKind::InsufficientMaterial | DrawKind::Moves75 | DrawKind::Repeat5)
+            )
+        {
             return true;
         }
-        with_declare && matches!(*self, Self::Draw(DrawKind::Moves50 | DrawKind::Repeat3))
+        matches!(filter, OutcomeFilter::Relaxed)
+            && matches!(*self, Self::Draw(DrawKind::Moves50 | DrawKind::Repeat3))
     }
 }
 
