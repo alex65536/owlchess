@@ -117,10 +117,6 @@ impl Move {
         }
     }
 
-    pub fn new(kind: MoveKind, src: Coord, dst: Coord, side: Color) -> Move {
-        Self::try_new(kind, src, dst, side).expect("move is not well-formed")
-    }
-
     pub fn from_str(s: &str, b: &Board) -> Result<Move, BasicParseError> {
         Ok(ParsedMove::from_str(s)?.into_move(b)?)
     }
@@ -145,7 +141,7 @@ impl Move {
         validate(b, *self)
     }
 
-    pub fn try_new(
+    pub fn new(
         kind: MoveKind,
         src: Coord,
         dst: Coord,
@@ -328,7 +324,7 @@ impl ParsedMove {
             MoveKind::Simple
         });
 
-        Move::try_new(kind, self.src, self.dst, C::COLOR)
+        Move::new(kind, self.src, self.dst, C::COLOR)
     }
 
     pub fn into_move(self, b: &Board) -> Result<Move, CreateError> {
@@ -336,6 +332,23 @@ impl ParsedMove {
             Color::White => self.do_into_move::<generic::White>(b),
             Color::Black => self.do_into_move::<generic::Black>(b),
         }
+    }
+}
+
+impl fmt::Display for ParsedMove {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        if self.kind == Some(MoveKind::Null) {
+            return write!(f, "0000");
+        }
+        write!(f, "{}{}", self.src, self.dst)?;
+        match self.kind {
+            Some(MoveKind::PromoteKnight) => write!(f, "n")?,
+            Some(MoveKind::PromoteBishop) => write!(f, "b")?,
+            Some(MoveKind::PromoteRook) => write!(f, "r")?,
+            Some(MoveKind::PromoteQueen) => write!(f, "q")?,
+            _ => {}
+        };
+        Ok(())
     }
 }
 
@@ -893,7 +906,7 @@ mod tests {
 
     #[test]
     fn test_undo() {
-        let mut b = Board::try_from_fen(
+        let mut b = Board::from_fen(
             "r1bqk2r/ppp2ppp/2np1n2/1Bb1p3/4P3/2PP1N2/PP3PPP/RNBQK2R w KQkq - 0 6",
         )
         .unwrap();
@@ -928,7 +941,7 @@ mod tests {
 
     #[test]
     fn test_pawns() {
-        let mut b = Board::try_from_fen("3K4/3p4/8/3PpP2/8/5p2/6P1/2k5 w - e6 0 1").unwrap();
+        let mut b = Board::from_fen("3K4/3p4/8/3PpP2/8/5p2/6P1/2k5 w - e6 0 1").unwrap();
         let b_copy = b.clone();
 
         for (mv_str, fen_str) in [
@@ -949,7 +962,7 @@ mod tests {
 
     #[test]
     fn test_legal() {
-        let b = Board::try_from_fen(
+        let b = Board::from_fen(
             "r1bqk2r/ppp2ppp/2np1n2/1Bb1p3/4P3/2PP1N2/PP3PPP/RNBQK2R w KQkq - 0 6",
         )
         .unwrap();

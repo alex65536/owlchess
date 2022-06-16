@@ -128,7 +128,7 @@ impl RawBoard {
         res
     }
 
-    pub fn try_from_fen(fen: &str) -> Result<RawBoard, RawFenParseError> {
+    pub fn from_fen(fen: &str) -> Result<RawBoard, RawFenParseError> {
         RawBoard::from_str(fen)
     }
 
@@ -198,7 +198,7 @@ impl Board {
         RawBoard::initial().try_into().unwrap()
     }
 
-    pub fn try_from_fen(fen: &str) -> Result<Board, FenParseError> {
+    pub fn from_fen(fen: &str) -> Result<Board, FenParseError> {
         Board::from_str(fen)
     }
 
@@ -735,7 +735,7 @@ mod tests {
         const FEN: &'static str =
             "1rq1r1k1/1p3ppp/pB3n2/3ppP2/Pbb1P3/1PN2B2/2P2QPP/R1R4K w - - 1 21";
 
-        let board = Board::try_from_fen(FEN).unwrap();
+        let board = Board::from_fen(FEN).unwrap();
         assert_eq!(board.as_fen(), FEN);
         assert_eq!(
             board.get2(File::B, Rank::R4),
@@ -765,7 +765,7 @@ mod tests {
         const FEN: &'static str =
             "r1bq1b1r/ppppkppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK1R1 w KQkq c6 6 5";
 
-        let raw = RawBoard::try_from_fen(FEN).unwrap();
+        let raw = RawBoard::from_fen(FEN).unwrap();
         assert_eq!(raw.castling, CastlingRights::FULL);
         assert_eq!(raw.enpassant, Some(Coord::from_parts(File::C, Rank::R5)));
         assert_eq!(raw.as_fen(), FEN);
@@ -785,26 +785,26 @@ mod tests {
     #[test]
     fn test_incomplete() {
         assert_eq!(
-            RawBoard::try_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"),
+            RawBoard::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"),
             Err(RawFenParseError::NoMoveSide)
         );
 
         assert_eq!(
-            RawBoard::try_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w"),
+            RawBoard::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w"),
             Err(RawFenParseError::NoCastling)
         );
 
         assert_eq!(
-            RawBoard::try_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq"),
+            RawBoard::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq"),
             Err(RawFenParseError::NoEnpassant)
         );
 
         let raw =
-            RawBoard::try_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -").unwrap();
+            RawBoard::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -").unwrap();
         assert_eq!(raw.move_counter, 0);
         assert_eq!(raw.move_number, 1);
 
-        let raw = RawBoard::try_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 10")
+        let raw = RawBoard::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 10")
             .unwrap();
         assert_eq!(raw.move_counter, 10);
         assert_eq!(raw.move_number, 1);

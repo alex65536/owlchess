@@ -77,14 +77,14 @@ impl<R: Repeat> BaseMoveChain<R> {
         Self::new(Board::initial())
     }
 
-    pub fn try_from_uci_list(b: Board, uci_list: &str) -> Result<Self, UciParseError> {
+    pub fn from_uci_list(b: Board, uci_list: &str) -> Result<Self, UciParseError> {
         let mut res = BaseMoveChain::new(b);
         res.push_uci_list(uci_list)?;
         Ok(res)
     }
 
-    pub fn try_from_fen(s: &str) -> Result<Self, board::FenParseError> {
-        Ok(Self::new(Board::try_from_fen(s)?))
+    pub fn from_fen(s: &str) -> Result<Self, board::FenParseError> {
+        Ok(Self::new(Board::from_fen(s)?))
     }
 
     pub fn last(&self) -> &Board {
