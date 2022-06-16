@@ -1,7 +1,7 @@
-mod moves;
+mod base;
 
 pub mod uci;
 
-pub use moves::*;
+pub use base::*;
 
 pub type UciMove = uci::Move;

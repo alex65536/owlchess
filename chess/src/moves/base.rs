@@ -1,10 +1,8 @@
+use super::uci;
 use crate::bitboard::Bitboard;
 use crate::board::Board;
-use crate::types::{
-    CastlingRights, CastlingSide, Cell, Color, Coord, File, Piece, Rank,
-};
+use crate::types::{CastlingRights, CastlingSide, Cell, Color, Coord, File, Piece, Rank};
 use crate::{attack, castling, generic, geometry, movegen, zobrist};
-use super::uci;
 
 use std::fmt;
 use std::str::FromStr;

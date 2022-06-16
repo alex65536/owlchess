@@ -1,6 +1,6 @@
-use crate::types::{Coord, Piece, Cell, File, Color, CoordParseError};
+use super::base::{self, CreateError, MoveKind, PromoteKind, ValidateError};
 use crate::board::Board;
-use super::moves::{self, CreateError, MoveKind, PromoteKind, ValidateError};
+use crate::types::{Cell, Color, Coord, CoordParseError, File, Piece};
 use crate::{generic, geometry};
 
 use std::fmt;
@@ -38,6 +38,7 @@ pub enum ParseError {
     Validate(#[from] ValidateError),
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Move {
     Null,
     Move {
@@ -48,9 +49,9 @@ pub enum Move {
 }
 
 impl Move {
-    fn do_into_move<C: generic::Color>(&self, b: &Board) -> Result<moves::Move, CreateError> {
+    fn do_into_move<C: generic::Color>(&self, b: &Board) -> Result<base::Move, CreateError> {
         match *self {
-            Move::Null => Ok(moves::Move::NULL),
+            Move::Null => Ok(base::Move::NULL),
             Move::Move { src, dst, promote } => {
                 let kind = promote.map(MoveKind::promote).unwrap_or_else(|| {
                     // Pawn moves
@@ -82,12 +83,12 @@ impl Move {
                     MoveKind::Simple
                 });
 
-                moves::Move::new(kind, src, dst, C::COLOR)
+                base::Move::new(kind, src, dst, C::COLOR)
             }
         }
     }
 
-    pub fn into_move(self, b: &Board) -> Result<moves::Move, CreateError> {
+    pub fn into_move(self, b: &Board) -> Result<base::Move, CreateError> {
         match b.r.side {
             Color::White => self.do_into_move::<generic::White>(b),
             Color::Black => self.do_into_move::<generic::Black>(b),
@@ -95,8 +96,8 @@ impl Move {
     }
 }
 
-impl From<moves::Move> for Move {
-    fn from(mv: moves::Move) -> Move {
+impl From<base::Move> for Move {
+    fn from(mv: base::Move) -> Move {
         if mv.kind() == MoveKind::Null {
             return Move::Null;
         }

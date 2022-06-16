@@ -80,6 +80,17 @@ impl File {
         (0..8).map(|x| unsafe { Self::from_index_unchecked(x) })
     }
 
+    unsafe fn from_char_unchecked(c: char) -> Self {
+        File::from_index_unchecked((u32::from(c) - u32::from('a')) as usize)
+    }
+
+    pub fn from_char(c: char) -> Option<Self> {
+        match c {
+            'a'..='h' => Some(unsafe { Self::from_char_unchecked(c) }),
+            _ => None,
+        }
+    }
+
     pub fn as_char(&self) -> char {
         (b'a' + *self as u8) as char
     }
@@ -130,6 +141,17 @@ impl Rank {
 
     pub fn iter() -> impl Iterator<Item = Self> {
         (0..8).map(|x| unsafe { Self::from_index_unchecked(x) })
+    }
+
+    unsafe fn from_char_unchecked(c: char) -> Self {
+         Rank::from_index_unchecked((u32::from('8') - u32::from(c)) as usize)
+    }
+
+    pub fn from_char(c: char) -> Option<Self> {
+        match c {
+            '1'..='8' => Some(unsafe { Self::from_char_unchecked(c) }),
+            _ => None,
+        }
     }
 
     pub fn as_char(&self) -> char {
@@ -238,15 +260,11 @@ impl FromStr for Coord {
             return Err(CoordParseError::BadLength);
         }
         let bytes = s.as_bytes();
-        let file = match bytes[0] {
-            b @ b'a'..=b'h' => unsafe { File::from_index_unchecked((b - b'a') as usize) },
-            b => return Err(CoordParseError::UnexpectedFileChar(b as char)),
-        };
-        let rank = match bytes[1] {
-            b @ b'1'..=b'8' => unsafe { Rank::from_index_unchecked((b'8' - b) as usize) },
-            b => return Err(CoordParseError::UnexpectedRankChar(b as char)),
-        };
-        Ok(Coord::from_parts(file, rank))
+        let (file_ch, rank_ch) = (bytes[0] as char, bytes[1] as char);
+        Ok(Coord::from_parts(
+            File::from_char(file_ch).ok_or(CoordParseError::UnexpectedFileChar(file_ch))?,
+            Rank::from_char(rank_ch).ok_or(CoordParseError::UnexpectedRankChar(rank_ch))?,
+        ))
     }
 }
 
