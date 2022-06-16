@@ -3,7 +3,7 @@ use crate::board::Board;
 use crate::types::{
     CastlingRights, CastlingSide, Cell, Color, Coord, CoordParseError, File, Piece, Rank,
 };
-use crate::{castling, generic, geometry, zobrist};
+use crate::{attack, castling, generic, geometry, movegen, zobrist};
 
 use std::fmt;
 use std::str::FromStr;
@@ -746,9 +746,51 @@ pub fn is_move_sane(b: &Board, mv: Move) -> bool {
     }
 }
 
-fn do_is_move_semilegal(_b: &Board, _mv: Move) -> bool {
-    // TODO
-    true
+fn do_is_move_semilegal<C: generic::Color>(b: &Board, mv: Move) -> bool {
+    match mv.kind {
+        MoveKind::Null => false,
+        MoveKind::CastlingKingside => {
+            let tmp = unsafe { mv.src.add_unchecked(1) };
+            !movegen::do_is_cell_attacked::<C::Inv>(b, mv.src)
+                && !movegen::do_is_cell_attacked::<C::Inv>(b, tmp)
+        }
+        MoveKind::CastlingQueenside => {
+            let tmp = unsafe { mv.src.add_unchecked(-1) };
+            !movegen::do_is_cell_attacked::<C::Inv>(b, mv.src)
+                && !movegen::do_is_cell_attacked::<C::Inv>(b, tmp)
+        }
+        MoveKind::PawnSimple
+        | MoveKind::PromoteKnight
+        | MoveKind::PromoteBishop
+        | MoveKind::PromoteRook
+        | MoveKind::PromoteQueen => {
+            let dst_cell = b.r.get(mv.dst);
+            (mv.dst.file() == mv.src.file()) == dst_cell.is_empty()
+        }
+        MoveKind::Simple => {
+            let src_cell = b.r.get(mv.src);
+            let dst = Bitboard::from_coord(mv.dst);
+            match src_cell.piece() {
+                Some(Piece::King) => (attack::king(mv.src) & dst).is_nonempty(),
+                Some(Piece::Knight) => (attack::knight(mv.src) & dst).is_nonempty(),
+                Some(Piece::Bishop) => (attack::bishop(mv.src, b.all) & dst).is_nonempty(),
+                Some(Piece::Rook) => (attack::rook(mv.src, b.all) & dst).is_nonempty(),
+                Some(Piece::Queen) => {
+                    (attack::bishop(mv.src, b.all) & dst).is_nonempty()
+                        || (attack::rook(mv.src, b.all) & dst).is_nonempty()
+                }
+                _ => unreachable!(),
+            }
+        }
+        MoveKind::Enpassant | MoveKind::PawnDouble => true,
+    }
+}
+
+pub unsafe fn is_move_semilegal_unchecked(b: &Board, mv: Move) -> bool {
+    match b.r.side {
+        Color::White => do_is_move_semilegal::<generic::White>(b, mv),
+        Color::Black => do_is_move_semilegal::<generic::Black>(b, mv),
+    }
 }
 
 pub unsafe fn is_move_legal_unchecked(b: &Board, mv: Move) -> bool {
@@ -761,7 +803,7 @@ pub fn semi_validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
     if !is_move_sane(b, mv) {
         return Err(ValidateError::NotSane);
     }
-    if !do_is_move_semilegal(b, mv) {
+    if unsafe { !is_move_semilegal_unchecked(b, mv) } {
         return Err(ValidateError::NotSemiLegal);
     }
     Ok(())
@@ -916,7 +958,6 @@ mod tests {
         .unwrap();
 
         let m = Move::from_str("e1c1", &b).unwrap();
-        dbg!(m);
         assert!(!is_move_sane(&b, m));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSane));
 

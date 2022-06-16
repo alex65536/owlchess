@@ -185,7 +185,7 @@ impl Coord {
     }
 
     pub const fn diag2(&self) -> usize {
-        7 - self.file().index() + self.rank().index()
+        7 - self.rank().index() + self.file().index()
     }
 
     pub const fn add(self, delta: isize) -> Coord {

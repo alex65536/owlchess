@@ -137,7 +137,6 @@ impl Iterator for Iter {
         }
         let bit = self.0.trailing_zeros();
         self.0 &= self.0.wrapping_sub(1_u64);
-        dbg!(bit);
         unsafe { Some(Coord::from_index_unchecked(bit as usize)) }
     }
 }

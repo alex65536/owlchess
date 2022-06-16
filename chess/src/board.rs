@@ -1,7 +1,8 @@
 use crate::bitboard::Bitboard;
 use crate::moves::{self, Move};
 use crate::types::{
-    self, CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, Piece, Rank, Outcome, WinKind,
+    self, CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, Outcome, Piece, Rank,
+    WinKind,
 };
 use crate::{bitboard_consts, geometry, movegen, zobrist};
 

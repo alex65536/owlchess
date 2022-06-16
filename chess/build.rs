@@ -389,10 +389,10 @@ mod magic {
                     for &(delta_file, delta_rank) in M::SHIFTS {
                         let mut p = c;
                         while let Some(new_p) = p.try_shift(delta_file, delta_rank) {
-                            if occupied.has(p) {
+                            res.set(new_p);
+                            if occupied.has(new_p) {
                                 break;
                             }
-                            res.set(new_p);
                             p = new_p;
                         }
                     }

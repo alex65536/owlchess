@@ -18,7 +18,7 @@ fn line_pieces(b: &Board, c: Color) -> Bitboard {
     b.piece2(c, Piece::Rook) | b.piece2(c, Piece::Queen)
 }
 
-fn do_is_cell_attacked<C: generic::Color>(b: &Board, coord: Coord) -> bool {
+pub(crate) fn do_is_cell_attacked<C: generic::Color>(b: &Board, coord: Coord) -> bool {
     // Here, we use black attack map for white, as we need to trace the attack from destination piece,
     // not from the source one
     let pawn_attacks = attack::pawn(C::COLOR.inv(), coord);
@@ -392,13 +392,15 @@ impl<'a, C: generic::Color, P: MaybeMovePush> MoveGenImpl<'a, C, P> {
 
 pub mod semilegal {
     use super::{MoveGenImpl, MoveList, MovePush};
-    use crate::{board::Board, moves::Move, generic, types::Color};
+    use crate::{board::Board, generic, moves::Move, types::Color};
 
     struct UnsafeMoveList(MoveList);
 
     impl MovePush for UnsafeMoveList {
         fn push(&mut self, m: Move) {
-            unsafe { self.0.push_unchecked(m); }
+            unsafe {
+                self.0.push_unchecked(m);
+            }
         }
     }
 
@@ -458,7 +460,7 @@ pub mod legal {
         }
     }
 
-    do_impl!{
+    do_impl! {
         gen_all;
         gen_capture;
         gen_simple;
@@ -486,11 +488,12 @@ impl MaybeMovePush for LegalChecker {
 }
 
 pub fn has_legal_moves(b: &Board) -> bool {
-    let mut c = LegalChecker{b: b.clone()};
+    let mut c = LegalChecker { b: b.clone() };
     (match b.r.side {
         Color::White => MoveGenImpl::new(b, &mut c, generic::White).gen_all_for_detect(),
         Color::Black => MoveGenImpl::new(b, &mut c, generic::Black).gen_all_for_detect(),
-    }).is_err()
+    })
+    .is_err()
 }
 
 // TODO tests
