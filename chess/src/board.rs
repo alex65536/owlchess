@@ -214,6 +214,10 @@ impl Board {
         self.r.get2(file, rank)
     }
 
+    pub fn side(&self) -> Color {
+        self.r.side
+    }
+
     pub fn color(&self, c: Color) -> Bitboard {
         if c == Color::White {
             self.white
