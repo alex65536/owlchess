@@ -11,7 +11,7 @@ use thiserror::Error;
 #[error("cannot parse UCI move #{}: {}", .pos + 1, .source)]
 pub struct UciParseError {
     pub pos: usize,
-    pub source: moves::ParseError,
+    pub source: moves::uci::ParseError,
 }
 
 pub trait Repeat: Default {
@@ -177,7 +177,7 @@ impl<R: Repeat> BaseMoveChain<R> {
 
     pub fn push_uci_list(&mut self, uci_list: &str) -> Result<(), UciParseError> {
         for (pos, token) in uci_list.split_ascii_whitespace().enumerate() {
-            Move::from_str_semilegal(token, &self.board)
+            Move::from_uci_semilegal(token, &self.board)
                 .and_then(|mv| unsafe { Ok(self.try_push_unchecked(mv)?) })
                 .map_err(|source| UciParseError { pos, source })?;
         }

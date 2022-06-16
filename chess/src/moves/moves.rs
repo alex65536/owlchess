@@ -1,9 +1,10 @@
 use crate::bitboard::Bitboard;
 use crate::board::Board;
 use crate::types::{
-    CastlingRights, CastlingSide, Cell, Color, Coord, CoordParseError, File, Piece, Rank,
+    CastlingRights, CastlingSide, Cell, Color, Coord, File, Piece, Rank,
 };
 use crate::{attack, castling, generic, geometry, movegen, zobrist};
+use super::uci;
 
 use std::fmt;
 use std::str::FromStr;
@@ -116,36 +117,6 @@ pub enum CreateError {
     NotWellFormed,
 }
 
-#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
-pub enum RawParseError {
-    #[error("bad string length")]
-    BadLength,
-    #[error("bad source: {0}")]
-    BadSrc(CoordParseError),
-    #[error("bad destination: {0}")]
-    BadDst(CoordParseError),
-    #[error("bad promote char {0:?}")]
-    BadPromote(char),
-}
-
-#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
-pub enum BasicParseError {
-    #[error("cannot parse move: {0}")]
-    Parse(#[from] RawParseError),
-    #[error("cannot create move: {0}")]
-    Create(#[from] CreateError),
-}
-
-#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
-pub enum ParseError {
-    #[error("cannot parse move: {0}")]
-    Parse(#[from] RawParseError),
-    #[error("cannot create move: {0}")]
-    Create(#[from] CreateError),
-    #[error("invalid move: {0}")]
-    Validate(#[from] ValidateError),
-}
-
 impl Move {
     pub const NULL: Move = Move {
         kind: MoveKind::Null,
@@ -163,18 +134,18 @@ impl Move {
         }
     }
 
-    pub fn from_str(s: &str, b: &Board) -> Result<Move, BasicParseError> {
-        Ok(UciMove::from_str(s)?.into_move(b)?)
+    pub fn from_uci(s: &str, b: &Board) -> Result<Move, uci::BasicParseError> {
+        Ok(uci::Move::from_str(s)?.into_move(b)?)
     }
 
-    pub fn from_str_semilegal(s: &str, b: &Board) -> Result<Move, ParseError> {
-        let res = UciMove::from_str(s)?.into_move(b)?;
+    pub fn from_uci_semilegal(s: &str, b: &Board) -> Result<Move, uci::ParseError> {
+        let res = uci::Move::from_str(s)?.into_move(b)?;
         res.semi_validate(b)?;
         Ok(res)
     }
 
-    pub fn from_str_legal(s: &str, b: &Board) -> Result<Move, ParseError> {
-        let res = UciMove::from_str(s)?.into_move(b)?;
+    pub fn from_uci_legal(s: &str, b: &Board) -> Result<Move, uci::ParseError> {
+        let res = uci::Move::from_str(s)?.into_move(b)?;
         res.validate(b)?;
         Ok(res)
     }
@@ -299,15 +270,8 @@ impl Move {
         self.side
     }
 
-    pub fn uci(&self) -> UciMove {
-        if self.kind == MoveKind::Null {
-            return UciMove::Null;
-        }
-        UciMove::Move {
-            src: self.src,
-            dst: self.dst,
-            promote: self.kind.promote_to(),
-        }
+    pub fn uci(&self) -> uci::Move {
+        (*self).into()
     }
 }
 
@@ -320,109 +284,6 @@ impl Default for Move {
 impl fmt::Display for Move {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         self.uci().fmt(f)
-    }
-}
-
-pub enum UciMove {
-    Null,
-    Move {
-        src: Coord,
-        dst: Coord,
-        promote: Option<PromoteKind>,
-    },
-}
-
-impl UciMove {
-    fn do_into_move<C: generic::Color>(&self, b: &Board) -> Result<Move, CreateError> {
-        match *self {
-            UciMove::Null => Ok(Move::NULL),
-            UciMove::Move { src, dst, promote } => {
-                let kind = promote.map(MoveKind::promote).unwrap_or_else(|| {
-                    // Pawn moves
-                    if b.get(src) == Cell::from_parts(C::COLOR, Piece::Pawn) {
-                        if src.rank() == geometry::double_move_src_rank(C::COLOR)
-                            && dst.rank() == geometry::double_move_dst_rank(C::COLOR)
-                        {
-                            return MoveKind::PawnDouble;
-                        }
-                        if src.file() != dst.file() && b.get(dst).is_empty() {
-                            return MoveKind::Enpassant;
-                        }
-                        return MoveKind::PawnSimple;
-                    }
-
-                    // Castling
-                    if b.get(src) == Cell::from_parts(C::COLOR, Piece::King) {
-                        let rank = geometry::castling_rank(C::COLOR);
-                        if src == Coord::from_parts(File::E, rank) {
-                            if dst == Coord::from_parts(File::G, rank) {
-                                return MoveKind::CastlingKingside;
-                            }
-                            if dst == Coord::from_parts(File::C, rank) {
-                                return MoveKind::CastlingQueenside;
-                            }
-                        }
-                    }
-
-                    MoveKind::Simple
-                });
-
-                Move::new(kind, src, dst, C::COLOR)
-            }
-        }
-    }
-
-    pub fn into_move(self, b: &Board) -> Result<Move, CreateError> {
-        match b.r.side {
-            Color::White => self.do_into_move::<generic::White>(b),
-            Color::Black => self.do_into_move::<generic::Black>(b),
-        }
-    }
-}
-
-impl fmt::Display for UciMove {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        match *self {
-            UciMove::Null => write!(f, "0000"),
-            UciMove::Move { src, dst, promote } => {
-                write!(f, "{}{}", src, dst)?;
-                match promote {
-                    Some(PromoteKind::Knight) => write!(f, "n")?,
-                    Some(PromoteKind::Bishop) => write!(f, "b")?,
-                    Some(PromoteKind::Rook) => write!(f, "r")?,
-                    Some(PromoteKind::Queen) => write!(f, "q")?,
-                    None => {}
-                };
-                Ok(())
-            }
-        }
-    }
-}
-
-impl FromStr for UciMove {
-    type Err = RawParseError;
-
-    fn from_str(s: &str) -> Result<UciMove, Self::Err> {
-        if s == "0000" {
-            return Ok(UciMove::Null);
-        }
-        if !matches!(s.len(), 4 | 5) {
-            return Err(RawParseError::BadLength);
-        }
-        let src = Coord::from_str(&s[0..2]).map_err(RawParseError::BadSrc)?;
-        let dst = Coord::from_str(&s[2..4]).map_err(RawParseError::BadDst)?;
-        let promote = if s.len() == 5 {
-            Some(match s.as_bytes()[4] {
-                b'n' => PromoteKind::Knight,
-                b'b' => PromoteKind::Bishop,
-                b'r' => PromoteKind::Rook,
-                b'q' => PromoteKind::Queen,
-                b => return Err(RawParseError::BadPromote(b as char)),
-            })
-        } else {
-            None
-        };
-        Ok(UciMove::Move { src, dst, promote })
     }
 }
 
@@ -940,7 +801,7 @@ mod tests {
                 "r1bqkb1r/pppp1ppp/2n5/1B2p3/4n3/5N2/PPPP1PPP/RNBQ1RK1 w kq - 0 5",
             ),
         ] {
-            let m = Move::from_str_semilegal(mv_str, &b).unwrap();
+            let m = Move::from_uci_semilegal(mv_str, &b).unwrap();
             b = b.make_move(m).unwrap();
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
@@ -972,7 +833,7 @@ mod tests {
                 "r1bqk2r/ppp2ppp/2np1n2/1Bb1p3/2P1P3/3P1N2/PP3PPP/RNBQK2R b KQkq - 0 6",
             ),
         ] {
-            let m = Move::from_str_semilegal(mv_str, &b).unwrap();
+            let m = Move::from_uci_semilegal(mv_str, &b).unwrap();
             let u = unsafe { try_make_move_unchecked(&mut b, m).unwrap() };
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
@@ -993,7 +854,7 @@ mod tests {
             ("d5e6", "3K4/3p4/4P3/5P2/8/5p2/6P1/2k5 b - - 0 1"),
             ("f5e6", "3K4/3p4/4P3/3P4/8/5p2/6P1/2k5 b - - 0 1"),
         ] {
-            let m = Move::from_str_semilegal(mv_str, &b).unwrap();
+            let m = Move::from_uci_semilegal(mv_str, &b).unwrap();
             let u = unsafe { try_make_move_unchecked(&mut b, m).unwrap() };
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
@@ -1008,25 +869,25 @@ mod tests {
             Board::from_fen("r1bqk2r/ppp2ppp/2np1n2/1Bb1p3/4P3/2PP1N2/PP3PPP/RNBQK2R w KQkq - 0 6")
                 .unwrap();
 
-        let m = Move::from_str("e1c1", &b).unwrap();
+        let m = Move::from_uci("e1c1", &b).unwrap();
         assert!(!is_move_sane(&b, m));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSane));
 
-        let m = Move::from_str("b5e8", &b).unwrap();
+        let m = Move::from_uci("b5e8", &b).unwrap();
         assert!(!is_move_sane(&b, m));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSane));
 
-        let m = Move::from_str("a3a4", &b).unwrap();
+        let m = Move::from_uci("a3a4", &b).unwrap();
         assert!(!is_move_sane(&b, m));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSane));
 
-        let m = Move::from_str("e1d1", &b).unwrap();
+        let m = Move::from_uci("e1d1", &b).unwrap();
         assert!(!is_move_sane(&b, m));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSane));
 
         assert_eq!(
-            Move::from_str("c3c5", &b),
-            Err(BasicParseError::Create(CreateError::NotWellFormed))
+            Move::from_uci("c3c5", &b),
+            Err(uci::BasicParseError::Create(CreateError::NotWellFormed))
         );
     }
 }
