@@ -2,6 +2,7 @@ pub use owlchess_base::bitboard;
 pub use owlchess_base::types;
 
 pub mod board;
+pub mod chain;
 pub mod movegen;
 pub mod moves;
 
@@ -16,6 +17,7 @@ mod zobrist;
 
 pub use bitboard::Bitboard;
 pub use board::{Board, PrettyStyle, RawBoard};
+pub use chain::MoveChain;
 pub use movegen::{MoveList, MovePush};
 pub use moves::{Move, MoveKind, ParsedMove};
 pub use types::{

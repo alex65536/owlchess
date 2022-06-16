@@ -584,6 +584,28 @@ impl Outcome {
             Color::Black => Self::Black(kind),
         }
     }
+
+    pub fn is_force(&self) -> bool {
+        matches!(
+            *self,
+            Self::White(WinKind::Checkmate)
+                | Self::Black(WinKind::Checkmate)
+                | Self::Draw(DrawKind::Stalemate)
+        )
+    }
+
+    pub fn is_auto(&self, with_declare: bool) -> bool {
+        if self.is_force() {
+            return true;
+        }
+        if matches!(
+            *self,
+            Self::Draw(DrawKind::InsufficientMaterial | DrawKind::Moves75 | DrawKind::Repeat5)
+        ) {
+            return true;
+        }
+        with_declare && matches!(*self, Self::Draw(DrawKind::Moves50 | DrawKind::Repeat3))
+    }
 }
 
 #[cfg(test)]

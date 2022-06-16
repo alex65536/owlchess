@@ -667,10 +667,7 @@ pub unsafe fn unmake_move_unchecked(b: &mut Board, mv: Move, u: RawUndo) {
     }
 }
 
-pub unsafe fn make_semilegal_move_unchecked(
-    b: &mut Board,
-    mv: Move,
-) -> Result<RawUndo, ValidateError> {
+pub unsafe fn try_make_move_unchecked(b: &mut Board, mv: Move) -> Result<RawUndo, ValidateError> {
     let u = make_move_unchecked(b, mv);
     if b.is_opponent_king_attacked() {
         unmake_move_unchecked(b, mv, u);
@@ -921,7 +918,7 @@ mod tests {
             ),
         ] {
             let m = Move::from_str_semilegal(mv_str, &b).unwrap();
-            let u = unsafe { make_semilegal_move_unchecked(&mut b, m).unwrap() };
+            let u = unsafe { try_make_move_unchecked(&mut b, m).unwrap() };
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
             unsafe { unmake_move_unchecked(&mut b, m, u) };
@@ -942,7 +939,7 @@ mod tests {
             ("f5e6", "3K4/3p4/4P3/3P4/8/5p2/6P1/2k5 b - - 0 1"),
         ] {
             let m = Move::from_str_semilegal(mv_str, &b).unwrap();
-            let u = unsafe { make_semilegal_move_unchecked(&mut b, m).unwrap() };
+            let u = unsafe { try_make_move_unchecked(&mut b, m).unwrap() };
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
             unsafe { unmake_move_unchecked(&mut b, m, u) };
