@@ -26,7 +26,53 @@ pub enum MoveKind {
     PromoteQueen = 10,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum PromoteKind {
+    Knight = 2,
+    Bishop = 3,
+    Rook = 4,
+    Queen = 5,
+}
+
+impl PromoteKind {
+    pub const fn piece(&self) -> Piece {
+        match self {
+            PromoteKind::Knight => Piece::Knight,
+            PromoteKind::Bishop => Piece::Bishop,
+            PromoteKind::Rook => Piece::Rook,
+            PromoteKind::Queen => Piece::Queen,
+        }
+    }
+
+    pub const fn from(p: Piece) -> Option<Self> {
+        match p {
+            Piece::Knight => Some(PromoteKind::Knight),
+            Piece::Bishop => Some(PromoteKind::Bishop),
+            Piece::Rook => Some(PromoteKind::Rook),
+            Piece::Queen => Some(PromoteKind::Queen),
+            _ => None,
+        }
+    }
+}
+
 impl MoveKind {
+    pub const fn castling(side: CastlingSide) -> Self {
+        match side {
+            CastlingSide::King => Self::CastlingKingside,
+            CastlingSide::Queen => Self::CastlingQueenside,
+        }
+    }
+
+    pub const fn promote(kind: PromoteKind) -> Self {
+        match kind {
+            PromoteKind::Knight => Self::PromoteKnight,
+            PromoteKind::Bishop => Self::PromoteBishop,
+            PromoteKind::Rook => Self::PromoteRook,
+            PromoteKind::Queen => Self::PromoteQueen,
+        }
+    }
+
     pub const fn castling_side(&self) -> Option<CastlingSide> {
         match *self {
             Self::CastlingKingside => Some(CastlingSide::King),
@@ -35,12 +81,12 @@ impl MoveKind {
         }
     }
 
-    pub const fn promote_to(&self) -> Option<Piece> {
+    pub const fn promote_to(&self) -> Option<PromoteKind> {
         match *self {
-            Self::PromoteKnight => Some(Piece::Knight),
-            Self::PromoteBishop => Some(Piece::Bishop),
-            Self::PromoteRook => Some(Piece::Rook),
-            Self::PromoteQueen => Some(Piece::Queen),
+            Self::PromoteKnight => Some(PromoteKind::Knight),
+            Self::PromoteBishop => Some(PromoteKind::Bishop),
+            Self::PromoteRook => Some(PromoteKind::Rook),
+            Self::PromoteQueen => Some(PromoteKind::Queen),
             _ => None,
         }
     }
@@ -118,17 +164,17 @@ impl Move {
     }
 
     pub fn from_str(s: &str, b: &Board) -> Result<Move, BasicParseError> {
-        Ok(ParsedMove::from_str(s)?.into_move(b)?)
+        Ok(UciMove::from_str(s)?.into_move(b)?)
     }
 
     pub fn from_str_semilegal(s: &str, b: &Board) -> Result<Move, ParseError> {
-        let res = ParsedMove::from_str(s)?.into_move(b)?;
+        let res = UciMove::from_str(s)?.into_move(b)?;
         res.semi_validate(b)?;
         Ok(res)
     }
 
     pub fn from_str_legal(s: &str, b: &Board) -> Result<Move, ParseError> {
-        let res = ParsedMove::from_str(s)?.into_move(b)?;
+        let res = UciMove::from_str(s)?.into_move(b)?;
         res.validate(b)?;
         Ok(res)
     }
@@ -141,12 +187,7 @@ impl Move {
         validate(b, *self)
     }
 
-    pub fn new(
-        kind: MoveKind,
-        src: Coord,
-        dst: Coord,
-        side: Color,
-    ) -> Result<Move, CreateError> {
+    pub fn new(kind: MoveKind, src: Coord, dst: Coord, side: Color) -> Result<Move, CreateError> {
         let mv = Move {
             kind,
             src,
@@ -257,6 +298,17 @@ impl Move {
     pub const fn side(&self) -> Option<Color> {
         self.side
     }
+
+    pub fn uci(&self) -> UciMove {
+        if self.kind == MoveKind::Null {
+            return UciMove::Null;
+        }
+        UciMove::Move {
+            src: self.src,
+            dst: self.dst,
+            promote: self.kind.promote_to(),
+        }
+    }
 }
 
 impl Default for Move {
@@ -267,64 +319,57 @@ impl Default for Move {
 
 impl fmt::Display for Move {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        if self.kind == MoveKind::Null {
-            return write!(f, "0000");
-        }
-        write!(f, "{}{}", self.src, self.dst)?;
-        match self.kind {
-            MoveKind::PromoteKnight => write!(f, "n")?,
-            MoveKind::PromoteBishop => write!(f, "b")?,
-            MoveKind::PromoteRook => write!(f, "r")?,
-            MoveKind::PromoteQueen => write!(f, "q")?,
-            _ => {}
-        };
-        Ok(())
+        self.uci().fmt(f)
     }
 }
 
-pub struct ParsedMove {
-    src: Coord,
-    dst: Coord,
-    kind: Option<MoveKind>,
+pub enum UciMove {
+    Null,
+    Move {
+        src: Coord,
+        dst: Coord,
+        promote: Option<PromoteKind>,
+    },
 }
 
-impl ParsedMove {
+impl UciMove {
     fn do_into_move<C: generic::Color>(&self, b: &Board) -> Result<Move, CreateError> {
-        if self.kind == Some(MoveKind::Null) {
-            return Ok(Move::NULL);
+        match *self {
+            UciMove::Null => Ok(Move::NULL),
+            UciMove::Move { src, dst, promote } => {
+                let kind = promote.map(MoveKind::promote).unwrap_or_else(|| {
+                    // Pawn moves
+                    if b.get(src) == Cell::from_parts(C::COLOR, Piece::Pawn) {
+                        if src.rank() == geometry::double_move_src_rank(C::COLOR)
+                            && dst.rank() == geometry::double_move_dst_rank(C::COLOR)
+                        {
+                            return MoveKind::PawnDouble;
+                        }
+                        if src.file() != dst.file() && b.get(dst).is_empty() {
+                            return MoveKind::Enpassant;
+                        }
+                        return MoveKind::PawnSimple;
+                    }
+
+                    // Castling
+                    if b.get(src) == Cell::from_parts(C::COLOR, Piece::King) {
+                        let rank = geometry::castling_rank(C::COLOR);
+                        if src == Coord::from_parts(File::E, rank) {
+                            if dst == Coord::from_parts(File::G, rank) {
+                                return MoveKind::CastlingKingside;
+                            }
+                            if dst == Coord::from_parts(File::C, rank) {
+                                return MoveKind::CastlingQueenside;
+                            }
+                        }
+                    }
+
+                    MoveKind::Simple
+                });
+
+                Move::new(kind, src, dst, C::COLOR)
+            }
         }
-
-        let kind = self.kind.unwrap_or_else(|| {
-            // Pawn moves
-            if b.get(self.src) == Cell::from_parts(C::COLOR, Piece::Pawn) {
-                if self.src.rank() == geometry::double_move_src_rank(C::COLOR)
-                    && self.dst.rank() == geometry::double_move_dst_rank(C::COLOR)
-                {
-                    return MoveKind::PawnDouble;
-                }
-                if self.src.file() != self.dst.file() && b.get(self.dst).is_empty() {
-                    return MoveKind::Enpassant;
-                }
-                return MoveKind::PawnSimple;
-            }
-
-            // Castling
-            if b.get(self.src) == Cell::from_parts(C::COLOR, Piece::King) {
-                let rank = geometry::castling_rank(C::COLOR);
-                if self.src == Coord::from_parts(File::E, rank) {
-                    if self.dst == Coord::from_parts(File::G, rank) {
-                        return MoveKind::CastlingKingside;
-                    }
-                    if self.dst == Coord::from_parts(File::C, rank) {
-                        return MoveKind::CastlingQueenside;
-                    }
-                }
-            }
-
-            MoveKind::Simple
-        });
-
-        Move::new(kind, self.src, self.dst, C::COLOR)
     }
 
     pub fn into_move(self, b: &Board) -> Result<Move, CreateError> {
@@ -335,51 +380,49 @@ impl ParsedMove {
     }
 }
 
-impl fmt::Display for ParsedMove {
+impl fmt::Display for UciMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        if self.kind == Some(MoveKind::Null) {
-            return write!(f, "0000");
+        match *self {
+            UciMove::Null => write!(f, "0000"),
+            UciMove::Move { src, dst, promote } => {
+                write!(f, "{}{}", src, dst)?;
+                match promote {
+                    Some(PromoteKind::Knight) => write!(f, "n")?,
+                    Some(PromoteKind::Bishop) => write!(f, "b")?,
+                    Some(PromoteKind::Rook) => write!(f, "r")?,
+                    Some(PromoteKind::Queen) => write!(f, "q")?,
+                    None => {}
+                };
+                Ok(())
+            }
         }
-        write!(f, "{}{}", self.src, self.dst)?;
-        match self.kind {
-            Some(MoveKind::PromoteKnight) => write!(f, "n")?,
-            Some(MoveKind::PromoteBishop) => write!(f, "b")?,
-            Some(MoveKind::PromoteRook) => write!(f, "r")?,
-            Some(MoveKind::PromoteQueen) => write!(f, "q")?,
-            _ => {}
-        };
-        Ok(())
     }
 }
 
-impl FromStr for ParsedMove {
+impl FromStr for UciMove {
     type Err = RawParseError;
 
-    fn from_str(s: &str) -> Result<ParsedMove, Self::Err> {
+    fn from_str(s: &str) -> Result<UciMove, Self::Err> {
         if s == "0000" {
-            return Ok(ParsedMove {
-                src: Coord::from_index(0),
-                dst: Coord::from_index(0),
-                kind: Some(MoveKind::Null),
-            });
+            return Ok(UciMove::Null);
         }
         if !matches!(s.len(), 4 | 5) {
             return Err(RawParseError::BadLength);
         }
         let src = Coord::from_str(&s[0..2]).map_err(RawParseError::BadSrc)?;
         let dst = Coord::from_str(&s[2..4]).map_err(RawParseError::BadDst)?;
-        let kind = if s.len() == 5 {
+        let promote = if s.len() == 5 {
             Some(match s.as_bytes()[4] {
-                b'n' => MoveKind::PromoteKnight,
-                b'b' => MoveKind::PromoteBishop,
-                b'r' => MoveKind::PromoteRook,
-                b'q' => MoveKind::PromoteQueen,
+                b'n' => PromoteKind::Knight,
+                b'b' => PromoteKind::Bishop,
+                b'r' => PromoteKind::Rook,
+                b'q' => PromoteKind::Queen,
                 b => return Err(RawParseError::BadPromote(b as char)),
             })
         } else {
             None
         };
-        Ok(ParsedMove { src, dst, kind })
+        Ok(UciMove::Move { src, dst, promote })
     }
 }
 
@@ -563,7 +606,7 @@ fn do_make_move<C: generic::Color>(b: &mut Board, mv: Move) -> RawUndo {
         | MoveKind::PromoteBishop
         | MoveKind::PromoteRook
         | MoveKind::PromoteQueen => {
-            let promote = Cell::from_parts(C::COLOR, mv.kind.promote_to().unwrap());
+            let promote = Cell::from_parts(C::COLOR, mv.kind.promote_to().unwrap().piece());
             let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
             b.r.put(mv.src, promote);
             b.r.put(mv.dst, Cell::EMPTY);
@@ -906,10 +949,9 @@ mod tests {
 
     #[test]
     fn test_undo() {
-        let mut b = Board::from_fen(
-            "r1bqk2r/ppp2ppp/2np1n2/1Bb1p3/4P3/2PP1N2/PP3PPP/RNBQK2R w KQkq - 0 6",
-        )
-        .unwrap();
+        let mut b =
+            Board::from_fen("r1bqk2r/ppp2ppp/2np1n2/1Bb1p3/4P3/2PP1N2/PP3PPP/RNBQK2R w KQkq - 0 6")
+                .unwrap();
         let b_copy = b.clone();
 
         for (mv_str, fen_str) in [
@@ -962,10 +1004,9 @@ mod tests {
 
     #[test]
     fn test_legal() {
-        let b = Board::from_fen(
-            "r1bqk2r/ppp2ppp/2np1n2/1Bb1p3/4P3/2PP1N2/PP3PPP/RNBQK2R w KQkq - 0 6",
-        )
-        .unwrap();
+        let b =
+            Board::from_fen("r1bqk2r/ppp2ppp/2np1n2/1Bb1p3/4P3/2PP1N2/PP3PPP/RNBQK2R w KQkq - 0 6")
+                .unwrap();
 
         let m = Move::from_str("e1c1", &b).unwrap();
         assert!(!is_move_sane(&b, m));

@@ -804,8 +804,8 @@ mod tests {
         assert_eq!(raw.move_counter, 0);
         assert_eq!(raw.move_number, 1);
 
-        let raw = RawBoard::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 10")
-            .unwrap();
+        let raw =
+            RawBoard::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 10").unwrap();
         assert_eq!(raw.move_counter, 10);
         assert_eq!(raw.move_number, 1);
     }
