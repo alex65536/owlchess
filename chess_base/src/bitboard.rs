@@ -39,6 +39,14 @@ impl Bitboard {
         Bitboard(self.0 & !(1_u64 << coord.index()))
     }
 
+    pub const fn shl(self, by: usize) -> Bitboard {
+        Bitboard(self.0 << by)
+    }
+
+    pub const fn shr(self, by: usize) -> Bitboard {
+        Bitboard(self.0 >> by)
+    }
+
     pub fn deposit_bits(&self, mut x: u64) -> Bitboard {
         let mut res: u64 = 0;
         let mut msk = self.0;

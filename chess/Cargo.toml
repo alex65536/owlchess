@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 owlchess_base = { path = "../chess_base" }
 thiserror = "1.0.31"
+arrayvec = "0.7.2"
 
 [build-dependencies]
 owlchess_base = { path = "../chess_base" }

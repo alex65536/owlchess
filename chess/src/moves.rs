@@ -3,7 +3,7 @@ use crate::board::Board;
 use crate::types::{
     CastlingRights, CastlingSide, Cell, Color, Coord, CoordParseError, File, Piece, Rank,
 };
-use crate::{geometry, generic, zobrist};
+use crate::{castling, generic, geometry, zobrist};
 
 use std::fmt;
 use std::str::FromStr;
@@ -131,8 +131,18 @@ impl Move {
         Ok(res)
     }
 
+    pub fn from_str_legal(s: &str, b: &Board) -> Result<Move, ParseError> {
+        let res = ParsedMove::from_str(s)?.into_move(b)?;
+        res.validate(b)?;
+        Ok(res)
+    }
+
     pub fn semi_validate(&self, b: &Board) -> Result<(), ValidateError> {
         semi_validate(b, *self)
+    }
+
+    pub fn validate(&self, b: &Board) -> Result<(), ValidateError> {
+        validate(b, *self)
     }
 
     pub fn try_new(
@@ -373,32 +383,8 @@ trait MakeMoveImpl {
     const COLOR: Color;
 }
 
-const fn castling_pass(c: Color, s: CastlingSide) -> Bitboard {
-    let x = match s {
-        CastlingSide::King => 0x60,
-        CastlingSide::Queen => 0x0e,
-    };
-    Bitboard::from_raw(match c {
-        Color::White => x << 56,
-        Color::Black => x,
-    })
-}
-
-const fn castling_srcs(c: Color, s: CastlingSide) -> Bitboard {
-    let x = match s {
-        CastlingSide::King => 0x90,
-        CastlingSide::Queen => 0x11,
-    };
-    Bitboard::from_raw(match c {
-        Color::White => x << 56,
-        Color::Black => x,
-    })
-}
-
-const CASTLING_ALL_SRCS: Bitboard = Bitboard::from_raw(0x91 | (0x91 << 56));
-
 fn update_castling(b: &mut Board, change: Bitboard) {
-    if (change & CASTLING_ALL_SRCS).is_empty() {
+    if (change & castling::ALL_SRCS).is_empty() {
         return;
     }
 
@@ -409,7 +395,7 @@ fn update_castling(b: &mut Board, change: Bitboard) {
         (Color::Black, CastlingSide::Queen),
         (Color::Black, CastlingSide::King),
     ] {
-        if (change & castling_srcs(c, s)).is_nonempty() {
+        if (change & castling::srcs(c, s)).is_nonempty() {
             castling.unset(c, s);
         }
     }
@@ -681,7 +667,10 @@ pub unsafe fn unmake_move_unchecked(b: &mut Board, mv: Move, u: RawUndo) {
     }
 }
 
-pub unsafe fn make_semilegal_move_unchecked(b: &mut Board, mv: Move) -> Result<RawUndo, ValidateError> {
+pub unsafe fn make_semilegal_move_unchecked(
+    b: &mut Board,
+    mv: Move,
+) -> Result<RawUndo, ValidateError> {
     let u = make_move_unchecked(b, mv);
     if b.is_opponent_king_attacked() {
         unmake_move_unchecked(b, mv, u);
@@ -694,7 +683,7 @@ fn do_is_move_sane<C: generic::Color>(b: &Board, mv: Move) -> bool {
     let src_cell = b.get(mv.src);
     let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
     let dst = Bitboard::from_coord(mv.dst);
-    let bad_dsts = *b.color(C::COLOR) | b.piece2(C::COLOR.inv(), Piece::King);
+    let bad_dsts = b.color(C::COLOR) | b.piece2(C::COLOR.inv(), Piece::King);
     if let Some(c) = mv.side {
         if c != C::COLOR {
             return false;
@@ -704,11 +693,11 @@ fn do_is_move_sane<C: generic::Color>(b: &Board, mv: Move) -> bool {
         MoveKind::Null => true,
         MoveKind::CastlingKingside => {
             b.r.castling.has(C::COLOR, CastlingSide::King)
-                && (b.all & castling_pass(C::COLOR, CastlingSide::King)).is_empty()
+                && (b.all & castling::pass(C::COLOR, CastlingSide::King)).is_empty()
         }
         MoveKind::CastlingQueenside => {
             b.r.castling.has(C::COLOR, CastlingSide::Queen)
-                && (b.all & castling_pass(C::COLOR, CastlingSide::Queen)).is_empty()
+                && (b.all & castling::pass(C::COLOR, CastlingSide::Queen)).is_empty()
         }
         MoveKind::Simple => {
             (dst & bad_dsts).is_empty() && src_cell.color() == Some(C::COLOR) && src_cell != pawn
@@ -762,14 +751,28 @@ fn do_is_move_semilegal(_b: &Board, _mv: Move) -> bool {
     true
 }
 
+pub unsafe fn is_move_legal_unchecked(b: &Board, mv: Move) -> bool {
+    let mut b_copy = b.clone();
+    let _ = make_move_unchecked(&mut b_copy, mv);
+    !b_copy.is_opponent_king_attacked()
+}
+
 pub fn semi_validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
     if !is_move_sane(b, mv) {
         return Err(ValidateError::NotSane);
     }
     if !do_is_move_semilegal(b, mv) {
-        return Err(ValidateError::NotLegal);
+        return Err(ValidateError::NotSemiLegal);
     }
     Ok(())
+}
+
+pub fn validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
+    semi_validate(b, mv)?;
+    match unsafe { is_move_legal_unchecked(b, mv) } {
+        true => Ok(()),
+        false => Err(ValidateError::NotLegal),
+    }
 }
 
 pub fn make_move_weak(b: &Board, mv: Move) -> Result<Board, ValidateError> {

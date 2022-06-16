@@ -569,6 +569,23 @@ pub enum Outcome {
     Draw(DrawKind),
 }
 
+impl Outcome {
+    pub fn winner(&self) -> Option<Color> {
+        match self {
+            Self::White(_) => Some(Color::White),
+            Self::Black(_) => Some(Color::Black),
+            Self::Draw(_) => None,
+        }
+    }
+
+    pub fn win(color: Color, kind: WinKind) -> Outcome {
+        match color {
+            Color::White => Self::White(kind),
+            Color::Black => Self::Black(kind),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -9,11 +9,14 @@ use owlchess_base::bitboard_consts;
 use owlchess_base::geometry;
 
 mod attack;
+mod castling;
 mod generic;
+mod pawns;
 mod zobrist;
 
 pub use bitboard::Bitboard;
 pub use board::{Board, PrettyStyle, RawBoard};
+pub use movegen::{MoveList, MovePush};
 pub use moves::{Move, MoveKind, ParsedMove};
 pub use types::{
     CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, Outcome, Piece, Rank, WinKind,

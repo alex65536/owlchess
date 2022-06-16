@@ -119,8 +119,7 @@ mod zobrist {
     }
 
     pub fn gen(out_path: &Path) -> io::Result<()> {
-        Zobrist::generate_default()
-            .output(&mut BufWriter::new(&fs::File::create(out_path)?))?;
+        Zobrist::generate_default().output(&mut BufWriter::new(&fs::File::create(out_path)?))?;
         Ok(())
     }
 }
@@ -191,8 +190,8 @@ mod magic {
     use std::io::{self, BufWriter, Write};
     use std::{cmp, fs, path::Path};
 
-    use owlchess_base::bitboard_consts;
     use owlchess_base::bitboard::Bitboard;
+    use owlchess_base::bitboard_consts;
     use owlchess_base::types::Coord;
     use rand_core::RngCore;
 
@@ -235,8 +234,9 @@ mod magic {
         const SHIFTS: &'static [(isize, isize)] = &[(0, 1), (0, -1), (-1, 0), (1, 0)];
 
         fn build_mask(c: Coord) -> Bitboard {
-            ((bitboard_consts::file(c.file()) & !FILE_FRAME) |
-            (bitboard_consts::rank(c.rank()) & !RANK_FRAME)) & !Bitboard::from_coord(c)
+            ((bitboard_consts::file(c.file()) & !FILE_FRAME)
+                | (bitboard_consts::rank(c.rank()) & !RANK_FRAME))
+                & !Bitboard::from_coord(c)
         }
 
         fn build_post_mask(c: Coord) -> Bitboard {
@@ -257,7 +257,7 @@ mod magic {
                 ranges[c2.index()] = range;
                 total = range.1;
             }
-            Offsets {ranges, total}
+            Offsets { ranges, total }
         }
     }
 
@@ -291,7 +291,7 @@ mod magic {
                 total = range.1;
             }
 
-            Offsets {ranges, total}
+            Offsets { ranges, total }
         }
     }
 
@@ -329,14 +329,17 @@ mod magic {
             loop {
                 *cur = gen_sparse_number(r);
                 if is_valid_magic_const::<M>(c, *cur) {
-                    break
+                    break;
                 }
             }
         }
         res
     }
 
-    fn write_magic_tables<M: Magic, W: Write>(w: &mut W, magic_consts: [u64; 64]) -> io::Result<()> {
+    fn write_magic_tables<M: Magic, W: Write>(
+        w: &mut W,
+        magic_consts: [u64; 64],
+    ) -> io::Result<()> {
         let off = M::init_offsets();
 
         writeln!(w, "const MAGIC_CONSTS_{}: [u64; 64] = [", M::NAME)?;
@@ -399,7 +402,12 @@ mod magic {
             lookups
         };
 
-        writeln!(w, "static MAGIC_LOOKUP_{}: [Bitboard; {}] = [", M::NAME, lookups.len())?;
+        writeln!(
+            w,
+            "static MAGIC_LOOKUP_{}: [Bitboard; {}] = [",
+            M::NAME,
+            lookups.len()
+        )?;
         for (i, b) in lookups.iter().enumerate() {
             writeln!(w, "    /*{}*/ bb(0x{:016x}),", i, b.as_raw())?;
         }

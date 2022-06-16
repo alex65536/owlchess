@@ -1,7 +1,7 @@
 use crate::bitboard::Bitboard;
 use crate::moves::{self, Move};
 use crate::types::{
-    self, CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, Piece, Rank,
+    self, CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, Piece, Rank, Outcome, WinKind,
 };
 use crate::{bitboard_consts, geometry, movegen, zobrist};
 
@@ -213,11 +213,11 @@ impl Board {
         self.r.get2(file, rank)
     }
 
-    pub fn color(&self, c: Color) -> &Bitboard {
+    pub fn color(&self, c: Color) -> Bitboard {
         if c == Color::White {
-            &self.white
+            self.white
         } else {
-            &self.black
+            self.black
         }
     }
 
@@ -265,6 +265,10 @@ impl Board {
         movegen::is_cell_attacked(self, self.king_pos(c.inv()), c)
     }
 
+    pub fn has_legal_moves(&self) -> bool {
+        movegen::has_legal_moves(self)
+    }
+
     pub fn is_check(&self) -> bool {
         let c = self.r.side;
         movegen::is_cell_attacked(self, self.king_pos(c), c.inv())
@@ -305,7 +309,22 @@ impl Board {
         false
     }
 
-    pub fn is_draw_simple(&self, with_proposed: bool) -> Option<DrawKind> {
+    pub fn calc_outcome(&self) -> Option<Outcome> {
+        if let Some(draw) = self.is_draw_simple() {
+            return Some(Outcome::Draw(draw));
+        }
+        if !self.has_legal_moves() {
+            if self.is_check() {
+                Some(Outcome::win(self.r.side.inv(), WinKind::Checkmate))
+            } else {
+                Some(Outcome::Draw(DrawKind::Stalemate))
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn is_draw_simple(&self) -> Option<DrawKind> {
         // Check for insufficient material
         if self.is_insufficient_material() {
             return Some(DrawKind::InsufficientMaterial);
@@ -315,7 +334,7 @@ impl Board {
         if self.r.move_counter >= 150 {
             return Some(DrawKind::Moves75);
         }
-        if with_proposed && self.r.move_counter >= 100 {
+        if self.r.move_counter >= 100 {
             return Some(DrawKind::Moves50);
         }
 
