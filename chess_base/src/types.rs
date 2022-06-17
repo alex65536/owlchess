@@ -144,7 +144,7 @@ impl Rank {
     }
 
     unsafe fn from_char_unchecked(c: char) -> Self {
-         Rank::from_index_unchecked((u32::from('8') - u32::from(c)) as usize)
+        Rank::from_index_unchecked((u32::from('8') - u32::from(c)) as usize)
     }
 
     pub fn from_char(c: char) -> Option<Self> {
