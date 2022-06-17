@@ -1,5 +1,5 @@
 use crate::board::{self, Board};
-use crate::moves::{self, Move, RawUndo, ValidateError};
+use crate::moves::{self, uci, san, Move, RawUndo, ValidateError};
 use crate::types::{DrawKind, Outcome, OutcomeFilter};
 
 use std::collections::HashMap;
@@ -91,6 +91,10 @@ impl<R: Repeat> BaseMoveChain<R> {
         &self.board
     }
 
+    pub fn len(&self) -> usize {
+        self.stack.len()
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = Move> + '_ {
         self.stack.iter().map(|(m, _)| *m)
     }
@@ -175,11 +179,21 @@ impl<R: Repeat> BaseMoveChain<R> {
         unsafe { self.try_push_unchecked(mv) }
     }
 
+    pub fn push_uci(&mut self, s: &str) -> Result<(), uci::ParseError> {
+        let mv = Move::from_uci_semilegal(s, &self.board)?;
+        unsafe { self.try_push_unchecked(mv).map_err(uci::ParseError::Validate)?; }
+        Ok(())
+    }
+
+    pub fn push_san(&mut self, s: &str) -> Result<(), san::ParseError> {
+        let mv = Move::from_san(s, &self.board)?;
+        unsafe { self.push_unchecked(mv); }
+        Ok(())
+    }
+
     pub fn push_uci_list(&mut self, uci_list: &str) -> Result<(), UciParseError> {
         for (pos, token) in uci_list.split_ascii_whitespace().enumerate() {
-            Move::from_uci_semilegal(token, &self.board)
-                .and_then(|mv| unsafe { Ok(self.try_push_unchecked(mv)?) })
-                .map_err(|source| UciParseError { pos, source })?;
+            self.push_uci(token).map_err(|source| UciParseError { pos, source })?;
         }
         Ok(())
     }
