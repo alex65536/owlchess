@@ -636,6 +636,36 @@ impl Outcome {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum GameStatus {
+    White,
+    Black,
+    Draw,
+    Running,
+}
+
+impl From<Option<Outcome>> for GameStatus {
+    fn from(src: Option<Outcome>) -> Self {
+        match src {
+            Some(Outcome::White(_)) => Self::White,
+            Some(Outcome::Black(_)) => Self::Black,
+            Some(Outcome::Draw(_)) => Self::Draw,
+            None => Self::Running,
+        }
+    }
+}
+
+impl fmt::Display for GameStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::White => write!(f, "1-0"),
+            Self::Black => write!(f, "0-1"),
+            Self::Draw => write!(f, "1/2-1/2"),
+            Self::Running => write!(f, "*"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

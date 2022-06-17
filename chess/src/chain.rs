@@ -1,6 +1,6 @@
-use crate::board::{self, RawBoard, Board};
+use crate::board::{self, Board, RawBoard};
 use crate::moves::{self, san, uci, Move, RawUndo, ValidateError};
-use crate::types::{Color, DrawKind, Outcome, OutcomeFilter};
+use crate::types::{Color, DrawKind, GameStatus, Outcome, OutcomeFilter};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -118,7 +118,7 @@ impl<R: Repeat> BaseMoveChain<R> {
     }
 
     pub fn is_finished(&self) -> bool {
-        self.outcome.is_none()
+        !self.outcome.is_none()
     }
 
     pub fn clear_outcome(&mut self) {
@@ -230,11 +230,17 @@ impl<R: Repeat> BaseMoveChain<R> {
         }
     }
 
-    pub fn styled(&self, policy: NumberPolicy, style: moves::Style) -> StyledList<'_, R> {
+    pub fn styled(
+        &self,
+        nums: NumberPolicy,
+        style: moves::Style,
+        status: GameStatusPolicy,
+    ) -> StyledList<'_, R> {
         StyledList {
             inner: self,
-            policy,
+            nums,
             style,
+            status,
         }
     }
 }
@@ -337,22 +343,33 @@ pub enum NumberPolicy {
     Custom(usize),
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum GameStatusPolicy {
+    Show,
+    Hide,
+}
+
 pub struct StyledList<'a, R: Repeat> {
     inner: &'a BaseMoveChain<R>,
-    policy: NumberPolicy,
+    nums: NumberPolicy,
     style: moves::Style,
+    status: GameStatusPolicy,
 }
 
 impl<'a, R: Repeat> fmt::Display for StyledList<'a, R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         if self.inner.len() == 0 {
+            match self.status {
+                GameStatusPolicy::Show => write!(f, "{}", GameStatus::from(*self.inner.outcome()))?,
+                GameStatusPolicy::Hide => {}
+            }
             return Ok(());
         }
 
         let mut walker = self.inner.walk();
         let (b, mv) = walker.next().unwrap();
         let real_start_num = b.raw().move_number as usize;
-        let start_num = match self.policy {
+        let start_num = match self.nums {
             NumberPolicy::Omit => None,
             NumberPolicy::FromBoard => Some(real_start_num),
             NumberPolicy::Custom(u) => Some(u),
@@ -379,6 +396,11 @@ impl<'a, R: Repeat> fmt::Display for StyledList<'a, R> {
             write!(f, " {}", mv.styled(b, self.style).unwrap())?;
         }
 
+        match self.status {
+            GameStatusPolicy::Show => write!(f, " {}", GameStatus::from(*self.inner.outcome()))?,
+            GameStatusPolicy::Hide => {}
+        }
+
         Ok(())
     }
 }
@@ -389,6 +411,7 @@ impl<'a, R: Repeat> fmt::Display for StyledList<'a, R> {
 mod tests {
     use super::*;
     use crate::board::Board;
+    use crate::types::{DrawKind, Outcome};
 
     #[test]
     fn test_styled() {
@@ -400,32 +423,52 @@ mod tests {
         );
         assert_eq!(
             chain
-                .styled(NumberPolicy::Omit, moves::Style::San)
+                .styled(
+                    NumberPolicy::Omit,
+                    moves::Style::San,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "e4 e5 Nf3 d6 Bb5+".to_string()
         );
         assert_eq!(
             chain
-                .styled(NumberPolicy::FromBoard, moves::Style::San)
+                .styled(
+                    NumberPolicy::FromBoard,
+                    moves::Style::San,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "1. e4 e5 2. Nf3 d6 3. Bb5+".to_string()
         );
         assert_eq!(
             chain
-                .styled(NumberPolicy::Custom(42), moves::Style::San)
+                .styled(
+                    NumberPolicy::Custom(42),
+                    moves::Style::San,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "42. e4 e5 43. Nf3 d6 44. Bb5+".to_string()
         );
 
         assert_eq!(
             chain
-                .styled(NumberPolicy::FromBoard, moves::Style::SanUtf8)
+                .styled(
+                    NumberPolicy::FromBoard,
+                    moves::Style::SanUtf8,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "1. e4 e5 2. ♘f3 d6 3. ♗b5+".to_string()
         );
         assert_eq!(
             chain
-                .styled(NumberPolicy::FromBoard, moves::Style::Uci)
+                .styled(
+                    NumberPolicy::FromBoard,
+                    moves::Style::Uci,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "1. e2e4 e7e5 2. g1f3 d7d6 3. f1b5".to_string()
         );
@@ -439,19 +482,31 @@ mod tests {
         assert_eq!(chain.len(), 6);
         assert_eq!(
             chain
-                .styled(NumberPolicy::Omit, moves::Style::San)
+                .styled(
+                    NumberPolicy::Omit,
+                    moves::Style::San,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "e4 e5 Nf3 d6 Bb5+ c6".to_string()
         );
         assert_eq!(
             chain
-                .styled(NumberPolicy::FromBoard, moves::Style::San)
+                .styled(
+                    NumberPolicy::FromBoard,
+                    moves::Style::San,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "1. e4 e5 2. Nf3 d6 3. Bb5+ c6".to_string()
         );
         assert_eq!(
             chain
-                .styled(NumberPolicy::Custom(42), moves::Style::San)
+                .styled(
+                    NumberPolicy::Custom(42),
+                    moves::Style::San,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "42. e4 e5 43. Nf3 d6 44. Bb5+ c6".to_string()
         );
@@ -462,19 +517,31 @@ mod tests {
         assert_eq!(chain.len(), 2);
         assert_eq!(
             chain
-                .styled(NumberPolicy::Omit, moves::Style::San)
+                .styled(
+                    NumberPolicy::Omit,
+                    moves::Style::San,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "g1=Q e8=Q".to_string()
         );
         assert_eq!(
             chain
-                .styled(NumberPolicy::FromBoard, moves::Style::San)
+                .styled(
+                    NumberPolicy::FromBoard,
+                    moves::Style::San,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "12... g1=Q 13. e8=Q".to_string()
         );
         assert_eq!(
             chain
-                .styled(NumberPolicy::Custom(42), moves::Style::San)
+                .styled(
+                    NumberPolicy::Custom(42),
+                    moves::Style::San,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "42... g1=Q 43. e8=Q".to_string()
         );
@@ -485,21 +552,47 @@ mod tests {
         assert_eq!(chain.len(), 3);
         assert_eq!(
             chain
-                .styled(NumberPolicy::Omit, moves::Style::San)
+                .styled(
+                    NumberPolicy::Omit,
+                    moves::Style::San,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "g1=Q e8=Q Qc5+".to_string()
         );
         assert_eq!(
             chain
-                .styled(NumberPolicy::FromBoard, moves::Style::San)
+                .styled(
+                    NumberPolicy::FromBoard,
+                    moves::Style::San,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "12... g1=Q 13. e8=Q Qc5+".to_string()
         );
         assert_eq!(
             chain
-                .styled(NumberPolicy::Custom(42), moves::Style::San)
+                .styled(
+                    NumberPolicy::Custom(42),
+                    moves::Style::San,
+                    GameStatusPolicy::Hide
+                )
                 .to_string(),
             "42... g1=Q 43. e8=Q Qc5+".to_string()
+        );
+
+        let mut chain =
+            MoveChain::from_uci_list(Board::initial(), "e2e4 e7e5 g1f3 d7d6 f1b5").unwrap();
+        chain.set_outcome(Outcome::Draw(DrawKind::Agreement));
+        assert_eq!(
+            chain
+                .styled(
+                    NumberPolicy::FromBoard,
+                    moves::Style::San,
+                    GameStatusPolicy::Show
+                )
+                .to_string(),
+            "1. e4 e5 2. Nf3 d6 3. Bb5+ 1/2-1/2".to_string()
         );
     }
 }
