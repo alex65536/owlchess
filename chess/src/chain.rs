@@ -208,6 +208,15 @@ impl<R: Repeat> BaseMoveChain<R> {
     pub fn uci_list(&self) -> UciList<'_, R> {
         UciList(self)
     }
+
+    pub fn walk(&self) -> Walker<'_> {
+        Walker {
+            board: self.board.clone(),
+            stack: &self.stack,
+            pos: self.stack.len(),
+            board_pos: self.stack.len(),
+        }
+    }
 }
 
 impl<R: Repeat + Eq> PartialEq<Self> for BaseMoveChain<R> {
@@ -238,6 +247,62 @@ impl<'a, R: Repeat> fmt::Display for UciList<'a, R> {
             write!(f, "{}", m)?;
         }
         Ok(())
+    }
+}
+
+pub struct Walker<'a> {
+    board: Board,
+    stack: &'a [(Move, RawUndo)],
+    pos: usize,
+    board_pos: usize,
+}
+
+impl<'a> Walker<'a> {
+    pub fn len(&self) -> usize {
+        self.stack.len()
+    }
+
+    pub fn pos(&self) -> usize {
+        self.pos
+    }
+
+    fn set_board_pos(&mut self, target: usize) {
+        while self.board_pos > target {
+            self.board_pos -= 1;
+            let (mv, u) = self.stack[self.board_pos];
+            unsafe { moves::unmake_move_unchecked(&mut self.board, mv, u); }
+        }
+        while self.board_pos < target {
+            let (mv, _) = self.stack[self.board_pos];
+            unsafe { moves::make_move_unchecked(&mut self.board, mv); }
+            self.board_pos += 1;
+        }
+    }
+
+    pub fn next(&mut self) -> Option<(&Board, Move)> {
+        if self.pos == self.stack.len() {
+            return None;
+        }
+        self.pos += 1;
+        self.set_board_pos(self.pos - 1);
+        Some((&self.board, self.stack[self.pos - 1].0))
+    }
+
+    pub fn prev(&mut self) -> Option<(&Board, Move)> {
+        if self.pos == 0 {
+            return None;
+        }
+        self.pos -= 1;
+        self.set_board_pos(self.pos);
+        Some((&self.board, self.stack[self.pos].0))
+    }
+
+    pub fn start(&mut self) {
+        self.pos = 0;
+    }
+
+    pub fn end(&mut self) {
+        self.pos = self.stack.len();
     }
 }
 
