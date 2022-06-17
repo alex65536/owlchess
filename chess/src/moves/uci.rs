@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 use thiserror::Error;
 
-#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
+#[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum RawParseError {
     #[error("bad string length")]
     BadLength,
@@ -20,7 +20,7 @@ pub enum RawParseError {
     BadPromote(char),
 }
 
-#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
+#[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum BasicParseError {
     #[error("cannot parse move: {0}")]
     Parse(#[from] RawParseError),
@@ -28,7 +28,7 @@ pub enum BasicParseError {
     Create(#[from] CreateError),
 }
 
-#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
+#[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum ParseError {
     #[error("cannot parse move: {0}")]
     Parse(#[from] RawParseError),

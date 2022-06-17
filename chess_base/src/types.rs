@@ -3,7 +3,7 @@ use std::hint;
 use std::str::FromStr;
 use thiserror::Error;
 
-#[derive(Error, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum CoordParseError {
     #[error("unexpected file char {0:?}")]
     UnexpectedFileChar(char),
@@ -13,7 +13,7 @@ pub enum CoordParseError {
     BadLength,
 }
 
-#[derive(Error, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum CellParseError {
     #[error("unexpected cell char {0:?}")]
     UnexpectedChar(char),
@@ -21,7 +21,7 @@ pub enum CellParseError {
     BadLength,
 }
 
-#[derive(Error, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum ColorParseError {
     #[error("unexpected color char {0:?}")]
     UnexpectedChar(char),
@@ -29,7 +29,7 @@ pub enum ColorParseError {
     BadLength,
 }
 
-#[derive(Error, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum CastlingRightsParseError {
     #[error("unexpected char {0:?}")]
     UnexpectedChar(char),

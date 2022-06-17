@@ -12,7 +12,7 @@ use std::str::{self, FromStr};
 
 use thiserror::Error;
 
-#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
+#[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum RawParseError {
     #[error("string is empty")]
     EmptyString,
@@ -26,7 +26,7 @@ pub enum RawParseError {
     Syntax,
 }
 
-#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
+#[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum IntoMoveError {
     #[error("cannot create move: {0}")]
     Create(#[from] CreateError),
@@ -40,7 +40,7 @@ pub enum IntoMoveError {
     Ambiguity(base::Move, base::Move),
 }
 
-#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
+#[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum ParseError {
     #[error("cannot parse move: {0}")]
     Parse(#[from] RawParseError),

@@ -7,7 +7,7 @@ use std::fmt;
 
 use thiserror::Error;
 
-#[derive(Debug, Error, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
 #[error("cannot parse UCI move #{}: {}", .pos + 1, .source)]
 pub struct UciParseError {
     pub pos: usize,
@@ -20,7 +20,7 @@ pub trait Repeat: Default {
     fn repeat_count(&self, b: &Board) -> usize;
 }
 
-#[derive(Default, Debug, Eq, PartialEq, Clone)]
+#[derive(Default, Debug, Clone, Eq, PartialEq)]
 pub struct HashRepeat(HashMap<u64, usize>);
 
 impl HashRepeat {

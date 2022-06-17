@@ -99,7 +99,7 @@ pub struct Move {
     side: Option<Color>,
 }
 
-#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
+#[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum ValidateError {
     #[error("move is not sane")]
     NotSane,
@@ -109,7 +109,7 @@ pub enum ValidateError {
     NotLegal,
 }
 
-#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
+#[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum CreateError {
     #[error("move is not well-formed")]
     NotWellFormed,

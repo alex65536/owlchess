@@ -12,7 +12,7 @@ use std::str::FromStr;
 
 use thiserror::Error;
 
-#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
+#[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum ValidateError {
     #[error("invalid enpassant position {0}")]
     InvalidEnpassant(Coord),
@@ -28,7 +28,7 @@ pub enum ValidateError {
     OpponentKingAttacked,
 }
 
-#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
+#[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum CellsParseError {
     #[error("too many items in rank {0}")]
     RankOverflow(Rank),
