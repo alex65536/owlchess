@@ -1,6 +1,6 @@
 use crate::board::{self, Board};
 use crate::moves::{self, uci, san, Move, RawUndo, ValidateError};
-use crate::types::{DrawKind, Outcome, OutcomeFilter};
+use crate::types::{Color, DrawKind, Outcome, OutcomeFilter};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -213,9 +213,13 @@ impl<R: Repeat> BaseMoveChain<R> {
         Walker {
             board: self.board.clone(),
             stack: &self.stack,
-            pos: self.stack.len(),
+            pos: 0,
             board_pos: self.stack.len(),
         }
+    }
+
+    pub fn san_list(&self, policy: NumberPolicy) -> SanList<'_, R> {
+        SanList {inner: self, policy}
     }
 }
 
@@ -306,5 +310,53 @@ impl<'a> Walker<'a> {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum NumberPolicy {
+    Omit,
+    FromBoard,
+    Custom(usize),
+}
+
+pub struct SanList<'a, R: Repeat> {
+    inner: &'a BaseMoveChain<R>,
+    policy: NumberPolicy,
+}
+
+impl<'a, R: Repeat> fmt::Display for SanList<'a, R> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        if self.inner.len() == 0 {
+            return Ok(());
+        }
+
+        let mut walker = self.inner.walk();
+        let (b, mv) = walker.next().unwrap();
+        let real_start_num = b.raw().move_number as usize;
+        let start_num = match self.policy {
+            NumberPolicy::Omit => None,
+            NumberPolicy::FromBoard => Some(real_start_num),
+            NumberPolicy::Custom(u) => Some(u),
+        };
+
+        if let Some(num) = start_num {
+            match b.side() {
+                Color::White => write!(f, "{}. ", num)?,
+                Color::Black => write!(f, "{}... ", num)?,
+            }
+        }
+        write!(f, "{}", mv.san(b).unwrap())?;
+
+        while let Some((b, mv)) = walker.next() {
+            if let Some(num) = start_num {
+                if b.side() == Color::White {
+                    write!(f, "{}. ", b.raw().move_number as usize - real_start_num + num)?;
+                }
+            }
+            write!(f, " {}", mv.san(b).unwrap())?;
+        }
+
+        Ok(())
+    }
+}
+
 // TODO : tests
-// TODO : SanMoveList
+// TODO : tests for SanMoveList
