@@ -50,6 +50,12 @@ pub enum ParseError {
     Convert(#[from] IntoMoveError),
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Style {
+    Algebraic,
+    Utf8,
+}
+
 trait PieceTheme {
     fn marker() -> PhantomData<Self>;
     fn piece_to_char(piece: Piece) -> char;
@@ -60,9 +66,9 @@ trait PieceTheme {
     }
 }
 
-struct PrettyTheme;
+struct Utf8Theme;
 
-impl PieceTheme for PrettyTheme {
+impl PieceTheme for Utf8Theme {
     fn marker() -> PhantomData<Self> {
         PhantomData
     }
@@ -133,7 +139,7 @@ pub enum Data {
     },
 }
 
-pub struct PrettyData<'a>(&'a Data);
+pub struct StyledData<'a>(&'a Data, Style);
 
 struct PromoteFmt<T: PieceTheme>(Option<PromoteKind>, PhantomData<T>);
 
@@ -243,8 +249,8 @@ impl MovePush for AmbigSearcher {
 }
 
 impl Data {
-    pub fn pretty(&self) -> PrettyData<'_> {
-        PrettyData(self)
+    pub fn styled(&self, style: Style) -> StyledData<'_> {
+        StyledData(self, style)
     }
 
     pub fn from_move(mv: base::Move, b: &Board) -> Data {
@@ -433,9 +439,12 @@ impl fmt::Display for Data {
     }
 }
 
-impl<'a> fmt::Display for PrettyData<'a> {
+impl<'a> fmt::Display for StyledData<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        self.0.do_fmt::<PrettyTheme>(f)
+        match self.1 {
+            Style::Algebraic => self.0.do_fmt::<AlgebraicTheme>(f),
+            Style::Utf8 => self.0.do_fmt::<Utf8Theme>(f),
+        }
     }
 }
 
@@ -557,11 +566,11 @@ pub struct Move {
     pub check: Option<CheckMark>,
 }
 
-pub struct PrettyMove<'a>(&'a Move);
+pub struct StyledMove<'a>(&'a Move, Style);
 
 impl Move {
-    pub fn pretty(&self) -> PrettyMove<'_> {
-        PrettyMove(self)
+    pub fn styled(&self, style: Style) -> StyledMove<'_> {
+        StyledMove(self, style)
     }
 
     pub(self) fn do_fmt<P: PieceTheme>(
@@ -604,9 +613,12 @@ impl fmt::Display for Move {
     }
 }
 
-impl<'a> fmt::Display for PrettyMove<'a> {
+impl<'a> fmt::Display for StyledMove<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        self.0.do_fmt::<PrettyTheme>(f)
+        match self.1 {
+            Style::Algebraic => self.0.do_fmt::<AlgebraicTheme>(f),
+            Style::Utf8 => self.0.do_fmt::<Utf8Theme>(f),
+        }
     }
 }
 
@@ -907,23 +919,32 @@ mod tests {
     }
 
     #[test]
-    fn test_pretty() {
+    fn test_styled() {
         let b = Board::from_str("8/2P5/8/8/8/8/4k1K1/8 w - - 0 1").unwrap();
         assert_eq!(
             base::Move::from_uci("g2h2", &b)
                 .unwrap()
                 .san(&b)
                 .unwrap()
-                .pretty()
+                .styled(Style::Utf8)
                 .to_string(),
             "♔h2".to_string()
+        );
+        assert_eq!(
+            base::Move::from_uci("g2h2", &b)
+                .unwrap()
+                .san(&b)
+                .unwrap()
+                .styled(Style::Algebraic)
+                .to_string(),
+            "Kh2".to_string()
         );
         assert_eq!(
             base::Move::from_uci("c7c8b", &b)
                 .unwrap()
                 .san(&b)
                 .unwrap()
-                .pretty()
+                .styled(Style::Utf8)
                 .to_string(),
             "c8♗".to_string()
         );

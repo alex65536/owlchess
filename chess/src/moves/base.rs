@@ -34,6 +34,13 @@ pub enum PromoteKind {
     Queen = 5,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Style {
+    San,
+    SanUtf8,
+    Uci,
+}
+
 impl PromoteKind {
     pub const fn piece(&self) -> Piece {
         match self {
@@ -294,6 +301,20 @@ impl Move {
     pub fn san(&self, b: &Board) -> Result<san::Move, ValidateError> {
         san::Move::from_move(*self, b)
     }
+
+    pub fn styled(&self, b: &Board, style: Style) -> Result<StyledMove, ValidateError> {
+        match style {
+            Style::Uci => Ok(StyledMove(Styled::Uci((*self).into()))),
+            Style::San => Ok(StyledMove(Styled::San(
+                san::Move::from_move(*self, b)?,
+                san::Style::Algebraic,
+            ))),
+            Style::SanUtf8 => Ok(StyledMove(Styled::San(
+                san::Move::from_move(*self, b)?,
+                san::Style::Utf8,
+            ))),
+        }
+    }
 }
 
 impl Default for Move {
@@ -305,6 +326,22 @@ impl Default for Move {
 impl fmt::Display for Move {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         self.uci().fmt(f)
+    }
+}
+
+enum Styled {
+    Uci(uci::Move),
+    San(san::Move, san::Style),
+}
+
+pub struct StyledMove(Styled);
+
+impl fmt::Display for StyledMove {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        match self.0 {
+            Styled::Uci(mv) => mv.fmt(f),
+            Styled::San(mv, sty) => mv.styled(sty).fmt(f),
+        }
     }
 }
 

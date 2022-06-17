@@ -211,7 +211,7 @@ impl<R: Repeat> BaseMoveChain<R> {
         Some(m)
     }
 
-    pub fn uci_list(&self) -> UciList<'_, R> {
+    pub fn uci(&self) -> UciList<'_, R> {
         UciList(self)
     }
 
@@ -224,10 +224,11 @@ impl<R: Repeat> BaseMoveChain<R> {
         }
     }
 
-    pub fn san_list(&self, policy: NumberPolicy) -> SanList<'_, R> {
-        SanList {
+    pub fn styled(&self, policy: NumberPolicy, style: moves::Style) -> StyledList<'_, R> {
+        StyledList {
             inner: self,
             policy,
+            style,
         }
     }
 }
@@ -330,12 +331,13 @@ pub enum NumberPolicy {
     Custom(usize),
 }
 
-pub struct SanList<'a, R: Repeat> {
+pub struct StyledList<'a, R: Repeat> {
     inner: &'a BaseMoveChain<R>,
     policy: NumberPolicy,
+    style: moves::Style,
 }
 
-impl<'a, R: Repeat> fmt::Display for SanList<'a, R> {
+impl<'a, R: Repeat> fmt::Display for StyledList<'a, R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         if self.inner.len() == 0 {
             return Ok(());
@@ -356,7 +358,7 @@ impl<'a, R: Repeat> fmt::Display for SanList<'a, R> {
                 Color::Black => write!(f, "{}... ", num)?,
             }
         }
-        write!(f, "{}", mv.san(b).unwrap())?;
+        write!(f, "{}", mv.styled(b, self.style).unwrap())?;
 
         while let Some((b, mv)) = walker.next() {
             if let Some(num) = start_num {
@@ -368,17 +370,14 @@ impl<'a, R: Repeat> fmt::Display for SanList<'a, R> {
                     )?;
                 }
             }
-            write!(f, " ")?;
-            write!(f, "{}", mv.san(b).unwrap())?;
+            write!(f, " {}", mv.styled(b, self.style).unwrap())?;
         }
 
         Ok(())
     }
 }
 
-// TODO : tests
-// TODO : pretty SanMoveList (tests for it, and possibly a way to unify all the three formatters in a single function)
-// TODO : add from_san_list (what to do with move number marks? just ignore them?)
+// TODO : more tests
 
 #[cfg(test)]
 mod tests {
@@ -386,7 +385,7 @@ mod tests {
     use crate::board::Board;
 
     #[test]
-    fn test_san_move_list() {
+    fn test_styled() {
         let chain = MoveChain::from_uci_list(Board::initial(), "e2e4 e7e5 g1f3 d7d6 f1b5").unwrap();
         assert_eq!(chain.len(), 5);
         assert_eq!(
@@ -394,16 +393,35 @@ mod tests {
             "rnbqkbnr/ppp2ppp/3p4/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 1 3"
         );
         assert_eq!(
-            chain.san_list(NumberPolicy::Omit).to_string(),
+            chain
+                .styled(NumberPolicy::Omit, moves::Style::San)
+                .to_string(),
             "e4 e5 Nf3 d6 Bb5+".to_string()
         );
         assert_eq!(
-            chain.san_list(NumberPolicy::FromBoard).to_string(),
+            chain
+                .styled(NumberPolicy::FromBoard, moves::Style::San)
+                .to_string(),
             "1. e4 e5 2. Nf3 d6 3. Bb5+".to_string()
         );
         assert_eq!(
-            chain.san_list(NumberPolicy::Custom(42)).to_string(),
+            chain
+                .styled(NumberPolicy::Custom(42), moves::Style::San)
+                .to_string(),
             "42. e4 e5 43. Nf3 d6 44. Bb5+".to_string()
+        );
+
+        assert_eq!(
+            chain
+                .styled(NumberPolicy::FromBoard, moves::Style::SanUtf8)
+                .to_string(),
+            "1. e4 e5 2. ♘f3 d6 3. ♗b5+".to_string()
+        );
+        assert_eq!(
+            chain
+                .styled(NumberPolicy::FromBoard, moves::Style::Uci)
+                .to_string(),
+            "1. e2e4 e7e5 2. g1f3 d7d6 3. f1b5".to_string()
         );
 
         let chain =
@@ -414,15 +432,21 @@ mod tests {
         );
         assert_eq!(chain.len(), 6);
         assert_eq!(
-            chain.san_list(NumberPolicy::Omit).to_string(),
+            chain
+                .styled(NumberPolicy::Omit, moves::Style::San)
+                .to_string(),
             "e4 e5 Nf3 d6 Bb5+ c6".to_string()
         );
         assert_eq!(
-            chain.san_list(NumberPolicy::FromBoard).to_string(),
+            chain
+                .styled(NumberPolicy::FromBoard, moves::Style::San)
+                .to_string(),
             "1. e4 e5 2. Nf3 d6 3. Bb5+ c6".to_string()
         );
         assert_eq!(
-            chain.san_list(NumberPolicy::Custom(42)).to_string(),
+            chain
+                .styled(NumberPolicy::Custom(42), moves::Style::San)
+                .to_string(),
             "42. e4 e5 43. Nf3 d6 44. Bb5+ c6".to_string()
         );
 
@@ -431,15 +455,21 @@ mod tests {
         assert_eq!(chain.last().as_fen(), "4QK2/8/8/8/8/8/8/6qk b - - 0 13");
         assert_eq!(chain.len(), 2);
         assert_eq!(
-            chain.san_list(NumberPolicy::Omit).to_string(),
+            chain
+                .styled(NumberPolicy::Omit, moves::Style::San)
+                .to_string(),
             "g1=Q e8=Q".to_string()
         );
         assert_eq!(
-            chain.san_list(NumberPolicy::FromBoard).to_string(),
+            chain
+                .styled(NumberPolicy::FromBoard, moves::Style::San)
+                .to_string(),
             "12... g1=Q 13. e8=Q".to_string()
         );
         assert_eq!(
-            chain.san_list(NumberPolicy::Custom(42)).to_string(),
+            chain
+                .styled(NumberPolicy::Custom(42), moves::Style::San)
+                .to_string(),
             "42... g1=Q 43. e8=Q".to_string()
         );
 
@@ -448,15 +478,21 @@ mod tests {
         assert_eq!(chain.last().as_fen(), "4QK2/8/8/2q5/8/8/8/7k w - - 1 14");
         assert_eq!(chain.len(), 3);
         assert_eq!(
-            chain.san_list(NumberPolicy::Omit).to_string(),
+            chain
+                .styled(NumberPolicy::Omit, moves::Style::San)
+                .to_string(),
             "g1=Q e8=Q Qc5+".to_string()
         );
         assert_eq!(
-            chain.san_list(NumberPolicy::FromBoard).to_string(),
+            chain
+                .styled(NumberPolicy::FromBoard, moves::Style::San)
+                .to_string(),
             "12... g1=Q 13. e8=Q Qc5+".to_string()
         );
         assert_eq!(
-            chain.san_list(NumberPolicy::Custom(42)).to_string(),
+            chain
+                .styled(NumberPolicy::Custom(42), moves::Style::San)
+                .to_string(),
             "42... g1=Q 43. e8=Q Qc5+".to_string()
         );
     }
