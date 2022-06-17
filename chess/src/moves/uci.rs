@@ -53,7 +53,7 @@ impl Move {
         match *self {
             Move::Null => Ok(base::Move::NULL),
             Move::Move { src, dst, promote } => {
-                let kind = promote.map(MoveKind::promote).unwrap_or_else(|| {
+                let kind = promote.map(MoveKind::from_promote).unwrap_or_else(|| {
                     // Pawn moves
                     if b.get(src) == Cell::from_parts(C::COLOR, Piece::Pawn) {
                         if src.rank() == geometry::double_move_src_rank(C::COLOR)
@@ -104,7 +104,7 @@ impl From<base::Move> for Move {
         Move::Move {
             src: mv.src(),
             dst: mv.dst(),
-            promote: mv.kind().promote_to(),
+            promote: mv.kind().promote(),
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::bitboard::Bitboard;
 use crate::board::Board;
-use crate::moves::{self, Move, MoveKind};
+use crate::moves::{self, Move, MoveKind, PromoteKind};
 use crate::types::{CastlingSide, Cell, Color, Coord, File, Piece};
 use crate::{attack, bitboard_consts, castling, generic, geometry, pawns};
 
@@ -120,6 +120,47 @@ impl<T: MovePush> MaybeMovePush for T {
     fn push(&mut self, m: Move) -> Result<(), Self::Err> {
         <Self as MovePush>::push(self, m);
         Ok(())
+    }
+}
+
+struct UnsafeMoveList(MoveList);
+
+impl UnsafeMoveList {
+    unsafe fn new() -> UnsafeMoveList {
+        UnsafeMoveList(MoveList::new())
+    }
+}
+
+impl MovePush for UnsafeMoveList {
+    fn push(&mut self, m: Move) {
+        unsafe {
+            self.0.push_unchecked(m);
+        }
+    }
+}
+
+struct LegalFilter<'a, P> {
+    board: Board,
+    inner: &'a mut P,
+}
+
+impl<'a, P: MaybeMovePush> LegalFilter<'a, P> {
+    unsafe fn new(board: Board, inner: &'a mut P) -> Self {
+        Self { board, inner }
+    }
+}
+
+impl<'a, P: MaybeMovePush> MaybeMovePush for LegalFilter<'a, P> {
+    type Err = P::Err;
+
+    fn push(&mut self, mv: Move) -> Result<(), Self::Err> {
+        let u = unsafe { moves::make_move_unchecked(&mut self.board, mv) };
+        let is_legal = !self.board.is_opponent_king_attacked();
+        unsafe { moves::unmake_move_unchecked(&mut self.board, mv, u) };
+        match is_legal {
+            true => self.inner.push(mv),
+            false => Ok(()),
+        }
     }
 }
 
@@ -369,6 +410,47 @@ impl<'a, C: generic::Color, P: MaybeMovePush> MoveGenImpl<'a, C, P> {
         Ok(())
     }
 
+    pub fn san_candidates(&mut self, _piece: Piece, _dst: Coord) -> Result<(), P::Err> {
+        // TODO
+        todo!()
+    }
+
+    pub fn san_pawn_capture_candidates(
+        &mut self,
+        src: File,
+        dst: File,
+        promote: Option<PromoteKind>,
+    ) -> Result<(), P::Err> {
+        let promote_mask = bitboard_consts::rank(geometry::promote_src_rank(C::COLOR));
+        let pawn_mask = match promote {
+            Some(_) => promote_mask,
+            None => !promote_mask,
+        };
+        let pawns =
+            self.board.piece2(C::COLOR, Piece::Pawn) & pawn_mask & bitboard_consts::file(src);
+        let allowed = self.board.color(C::COLOR.inv());
+        let kind = promote
+            .map(MoveKind::from_promote)
+            .unwrap_or(MoveKind::PawnSimple);
+        if src.index() == dst.index() + 1 {
+            let left_delta = geometry::pawn_left_delta(C::COLOR);
+            for dst in pawns::advance_left(C::COLOR, pawns) & allowed {
+                unsafe {
+                    self.add_move(kind, dst.add_unchecked(-left_delta), dst)?;
+                }
+            }
+        }
+        if src.index() + 1 == dst.index() {
+            let right_delta = geometry::pawn_right_delta(C::COLOR);
+            for dst in pawns::advance_right(C::COLOR, pawns) & allowed {
+                unsafe {
+                    self.add_move(kind, dst.add_unchecked(-right_delta), dst)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn gen_all(&mut self) -> Result<(), P::Err> {
         self.gen::<true, true, true, true>()
     }
@@ -391,18 +473,8 @@ impl<'a, C: generic::Color, P: MaybeMovePush> MoveGenImpl<'a, C, P> {
 }
 
 pub mod semilegal {
-    use super::{MoveGenImpl, MoveList, MovePush};
-    use crate::{board::Board, generic, moves::Move, types::Color};
-
-    struct UnsafeMoveList(MoveList);
-
-    impl MovePush for UnsafeMoveList {
-        fn push(&mut self, m: Move) {
-            unsafe {
-                self.0.push_unchecked(m);
-            }
-        }
-    }
+    use super::{MoveGenImpl, MoveList, MovePush, UnsafeMoveList};
+    use crate::{board::Board, generic, types::Color};
 
     macro_rules! do_impl {
         ($($(#[$attr:meta])* $name:ident; $(#[$attr_into:meta])* $name_into:ident;)*) => {
@@ -417,7 +489,7 @@ pub mod semilegal {
 
                 $(#[$attr_into])*
                 pub fn $name(b: &Board) -> MoveList {
-                    let mut res = UnsafeMoveList(MoveList::new());
+                    let mut res = unsafe { UnsafeMoveList::new() };
                     $name_into(b, &mut res);
                     res.0
                 }
@@ -469,31 +541,48 @@ pub mod legal {
     }
 }
 
-struct LegalChecker {
-    b: Board,
-}
+struct ErrOnFirst;
 
-impl MaybeMovePush for LegalChecker {
+impl MaybeMovePush for ErrOnFirst {
     type Err = ();
 
-    fn push(&mut self, mv: Move) -> Result<(), ()> {
-        let u = unsafe { moves::make_move_unchecked(&mut self.b, mv) };
-        let is_legal = !self.b.is_opponent_king_attacked();
-        unsafe { moves::unmake_move_unchecked(&mut self.b, mv, u) };
-        match is_legal {
-            true => Err(()),
-            false => Ok(()),
-        }
+    fn push(&mut self, _mv: Move) -> Result<(), ()> {
+        Err(())
     }
 }
 
 pub fn has_legal_moves(b: &Board) -> bool {
-    let mut c = LegalChecker { b: b.clone() };
+    let mut err_on_first = ErrOnFirst;
+    let mut p = unsafe { LegalFilter::new(b.clone(), &mut err_on_first) };
     (match b.r.side {
-        Color::White => MoveGenImpl::new(b, &mut c, generic::White).gen_all_for_detect(),
-        Color::Black => MoveGenImpl::new(b, &mut c, generic::Black).gen_all_for_detect(),
+        Color::White => MoveGenImpl::new(b, &mut p, generic::White).gen_all_for_detect(),
+        Color::Black => MoveGenImpl::new(b, &mut p, generic::Black).gen_all_for_detect(),
     })
     .is_err()
+}
+
+pub(crate) fn san_candidates<P: MovePush>(b: &Board, piece: Piece, dst: Coord, res: &mut P) {
+    let mut p = unsafe { LegalFilter::new(b.clone(), res) };
+    let _ = match b.r.side {
+        Color::White => MoveGenImpl::new(b, &mut p, generic::White).san_candidates(piece, dst),
+        Color::Black => MoveGenImpl::new(b, &mut p, generic::Black).san_candidates(piece, dst),
+    };
+}
+
+pub(crate) fn san_pawn_capture_candidates<P: MovePush>(
+    b: &Board,
+    src: File,
+    dst: File,
+    promote: Option<PromoteKind>,
+    res: &mut P,
+) {
+    let mut p = unsafe { LegalFilter::new(b.clone(), res) };
+    let _ = match b.r.side {
+        Color::White => MoveGenImpl::new(b, &mut p, generic::White)
+            .san_pawn_capture_candidates(src, dst, promote),
+        Color::Black => MoveGenImpl::new(b, &mut p, generic::Black)
+            .san_pawn_capture_candidates(src, dst, promote),
+    };
 }
 
 // TODO tests

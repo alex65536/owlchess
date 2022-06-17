@@ -1,6 +1,10 @@
-use super::base::PromoteKind;
+use super::base::{self, CreateError, MoveKind, PromoteKind, ValidateError};
 use super::uci;
+use crate::bitboard::Bitboard;
+use crate::board::Board;
+use crate::movegen::{self, MovePush};
 use crate::types::{CastlingSide, Coord, CoordParseError, File, Piece, Rank};
+use crate::{bitboard_consts, geometry};
 
 use std::fmt;
 use std::marker::PhantomData;
@@ -20,6 +24,28 @@ pub enum RawParseError {
     PawnMoveTooLong,
     #[error("syntax error")]
     Syntax,
+}
+
+#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
+pub enum IntoMoveError {
+    #[error("cannot create move: {0}")]
+    Create(#[from] CreateError),
+    #[error("invalid move: {0}")]
+    Validate(#[from] ValidateError),
+    #[error("expected capture")]
+    CaptureExpected,
+    #[error("move not found")]
+    NotFound,
+    #[error("ambiguous move (candidates are at least `{0}` and `{1}`)")]
+    Ambiguity(base::Move, base::Move),
+}
+
+#[derive(Debug, Copy, Clone, Error, Eq, PartialEq)]
+pub enum ParseError {
+    #[error("cannot parse move: {0}")]
+    Parse(#[from] RawParseError),
+    #[error("cannot convert move: {0}")]
+    Convert(#[from] IntoMoveError),
 }
 
 trait PieceTheme {
@@ -109,9 +135,227 @@ impl<T: PieceTheme> fmt::Display for PromoteFmt<T> {
     }
 }
 
+struct AmbigDetector {
+    mv: base::Move,
+    sim_any: bool,
+    sim_file: bool,
+    sim_rank: bool,
+}
+
+impl AmbigDetector {
+    fn new(mv: base::Move) -> Self {
+        Self {
+            mv,
+            sim_any: false,
+            sim_file: false,
+            sim_rank: false,
+        }
+    }
+
+    fn file(&self) -> Option<File> {
+        if self.sim_any && (self.sim_rank || !self.sim_file) {
+            return Some(self.mv.src().file());
+        }
+        None
+    }
+
+    fn rank(&self) -> Option<Rank> {
+        if self.sim_any && self.sim_file {
+            return Some(self.mv.src().rank());
+        }
+        None
+    }
+}
+
+impl MovePush for AmbigDetector {
+    fn push(&mut self, mv: base::Move) {
+        if mv == self.mv {
+            return;
+        }
+        self.sim_any = true;
+        if self.mv.src().file() == mv.src().file() {
+            self.sim_file = true;
+        }
+        if self.mv.src().rank() == mv.src().rank() {
+            self.sim_rank = true;
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+enum AmbigSearcherState {
+    Empty,
+    Found(base::Move),
+    Ambiguity(base::Move, base::Move),
+}
+
+struct AmbigSearcher {
+    srcs: Bitboard,
+    state: AmbigSearcherState,
+}
+
+impl AmbigSearcher {
+    fn new(file: Option<File>, rank: Option<Rank>) -> AmbigSearcher {
+        let mut srcs = Bitboard::FULL;
+        if let Some(file) = file {
+            srcs &= bitboard_consts::file(file);
+        }
+        if let Some(rank) = rank {
+            srcs &= bitboard_consts::rank(rank);
+        }
+        AmbigSearcher {
+            srcs,
+            state: AmbigSearcherState::Empty,
+        }
+    }
+
+    fn get_move(&self) -> Result<base::Move, IntoMoveError> {
+        match &self.state {
+            AmbigSearcherState::Empty => Err(IntoMoveError::NotFound),
+            AmbigSearcherState::Found(mv) => Ok(*mv),
+            AmbigSearcherState::Ambiguity(mv, mv2) => Err(IntoMoveError::Ambiguity(*mv, *mv2)),
+        }
+    }
+}
+
+impl MovePush for AmbigSearcher {
+    fn push(&mut self, mv: base::Move) {
+        if !self.srcs.has(mv.src()) {
+            return;
+        }
+        self.state = match self.state {
+            AmbigSearcherState::Empty => AmbigSearcherState::Found(mv),
+            AmbigSearcherState::Found(mv2) => AmbigSearcherState::Ambiguity(mv, mv2),
+            s @ AmbigSearcherState::Ambiguity(_, _) => s,
+        };
+    }
+}
+
 impl Data {
     pub fn pretty(&self) -> PrettyData<'_> {
         PrettyData(self)
+    }
+
+    pub fn from_move(mv: base::Move, b: &Board) -> Data {
+        match mv.kind() {
+            MoveKind::Null => Data::Uci(uci::Move::Null),
+            MoveKind::PawnDouble => Data::PawnMove {
+                dst: mv.dst(),
+                promote: None,
+            },
+            MoveKind::Enpassant => Data::PawnCapture {
+                src: mv.src().file(),
+                dst: mv.dst(),
+                promote: None,
+            },
+            MoveKind::PawnSimple
+            | MoveKind::PromoteKnight
+            | MoveKind::PromoteBishop
+            | MoveKind::PromoteRook
+            | MoveKind::PromoteQueen => {
+                if mv.src().file() == mv.dst().file() {
+                    Data::PawnMove {
+                        dst: mv.dst(),
+                        promote: mv.kind().promote(),
+                    }
+                } else {
+                    Data::PawnCapture {
+                        src: mv.src().file(),
+                        dst: mv.dst(),
+                        promote: mv.kind().promote(),
+                    }
+                }
+            }
+            MoveKind::CastlingKingside | MoveKind::CastlingQueenside => {
+                Data::Castling(mv.kind().castling().unwrap())
+            }
+            MoveKind::Simple => {
+                let piece = b.get(mv.src()).piece().unwrap();
+                let is_capture = b.get(mv.dst()).is_occupied();
+                let mut detector = AmbigDetector::new(mv);
+                movegen::san_candidates(b, piece, mv.dst(), &mut detector);
+                Data::Simple {
+                    piece,
+                    file: detector.file(),
+                    rank: detector.rank(),
+                    is_capture,
+                    dst: mv.dst(),
+                }
+            }
+        }
+    }
+
+    pub fn into_move(self, b: &Board) -> Result<base::Move, IntoMoveError> {
+        match self {
+            Self::Uci(uci) => {
+                let mv = uci.into_move(b)?;
+                mv.validate(b)?;
+                Ok(mv)
+            }
+            Self::Castling(side) => {
+                let mv = base::Move::castling(b.side(), side);
+                mv.validate(b)?;
+                Ok(mv)
+            }
+            Self::PawnMove { dst, promote } => {
+                if matches!(dst.rank(), Rank::R1 | Rank::R8) {
+                    return Err(IntoMoveError::Create(CreateError::NotWellFormed));
+                }
+                let mut src = dst.add(-geometry::pawn_forward_delta(b.side()));
+                let mut kind = MoveKind::PawnSimple;
+                if !b.get(src).is_occupied() {
+                    src = Coord::from_parts(dst.file(), geometry::double_move_src_rank(b.side()));
+                    kind = MoveKind::PawnDouble;
+                }
+                let mv = base::Move::new(
+                    promote.map(MoveKind::from_promote).unwrap_or(kind),
+                    src,
+                    dst,
+                    b.side(),
+                )?;
+                mv.validate(b)?;
+                Ok(mv)
+            }
+            Self::PawnCapture { src, dst, promote } => {
+                if matches!(dst.rank(), Rank::R1 | Rank::R8) {
+                    return Err(IntoMoveError::Create(CreateError::NotWellFormed));
+                }
+                if b.get(dst).is_empty() {
+                    return Err(IntoMoveError::CaptureExpected);
+                }
+                let src =
+                    Coord::from_parts(src, dst.rank()).add(-geometry::pawn_forward_delta(b.side()));
+                let mv = base::Move::new(
+                    promote
+                        .map(MoveKind::from_promote)
+                        .unwrap_or(MoveKind::PawnSimple),
+                    src,
+                    dst,
+                    b.side(),
+                )?;
+                mv.validate(b)?;
+                Ok(mv)
+            }
+            Self::PawnCaptureShort { src, dst, promote } => {
+                let mut detector = AmbigSearcher::new(None, None);
+                movegen::san_pawn_capture_candidates(b, src, dst, promote, &mut detector);
+                detector.get_move()
+            }
+            Self::Simple {
+                piece,
+                file,
+                rank,
+                is_capture,
+                dst,
+            } => {
+                if is_capture && b.get(dst).is_empty() {
+                    return Err(IntoMoveError::CaptureExpected);
+                }
+                let mut detector = AmbigSearcher::new(file, rank);
+                movegen::san_candidates(b, piece, dst, &mut detector);
+                detector.get_move()
+            }
+        }
     }
 
     pub(self) fn do_fmt<P: PieceTheme>(
@@ -320,6 +564,25 @@ impl Move {
         };
         Ok(())
     }
+
+    pub fn from_move(mv: base::Move, b: &Board) -> Result<Move, ValidateError> {
+        let data = Data::from_move(mv, b);
+        let b_copy = base::make_move(b, mv)?;
+        let check = if b_copy.is_check() {
+            if movegen::has_legal_moves(&b_copy) {
+                Some(CheckMark::Single)
+            } else {
+                Some(CheckMark::Checkmate)
+            }
+        } else {
+            None
+        };
+        Ok(Move { data, check })
+    }
+
+    pub fn into_move(self, b: &Board) -> Result<base::Move, IntoMoveError> {
+        self.data.into_move(b)
+    }
 }
 
 impl fmt::Display for Move {
@@ -355,6 +618,5 @@ impl FromStr for Move {
     }
 }
 
-// TODO convert moves::Move to san::Move
-// TODO convert san::Move to moves::Move
+// TODO implement san_candidates in movegen
 // TODO tests

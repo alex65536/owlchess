@@ -22,6 +22,7 @@ pub struct Bitboard(u64);
 
 impl Bitboard {
     pub const EMPTY: Bitboard = Bitboard(0);
+    pub const FULL: Bitboard = Bitboard(u64::MAX);
 
     pub const fn from_raw(val: u64) -> Bitboard {
         Bitboard(val)

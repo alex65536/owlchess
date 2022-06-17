@@ -1,4 +1,4 @@
-use super::uci;
+use super::{san, uci};
 use crate::bitboard::Bitboard;
 use crate::board::Board;
 use crate::types::{CastlingRights, CastlingSide, Cell, Color, Coord, File, Piece, Rank};
@@ -56,14 +56,14 @@ impl PromoteKind {
 }
 
 impl MoveKind {
-    pub const fn castling(side: CastlingSide) -> Self {
+    pub const fn from_castling(side: CastlingSide) -> Self {
         match side {
             CastlingSide::King => Self::CastlingKingside,
             CastlingSide::Queen => Self::CastlingQueenside,
         }
     }
 
-    pub const fn promote(kind: PromoteKind) -> Self {
+    pub const fn from_promote(kind: PromoteKind) -> Self {
         match kind {
             PromoteKind::Knight => Self::PromoteKnight,
             PromoteKind::Bishop => Self::PromoteBishop,
@@ -72,7 +72,7 @@ impl MoveKind {
         }
     }
 
-    pub const fn castling_side(&self) -> Option<CastlingSide> {
+    pub const fn castling(&self) -> Option<CastlingSide> {
         match *self {
             Self::CastlingKingside => Some(CastlingSide::King),
             Self::CastlingQueenside => Some(CastlingSide::Queen),
@@ -80,7 +80,7 @@ impl MoveKind {
         }
     }
 
-    pub const fn promote_to(&self) -> Option<PromoteKind> {
+    pub const fn promote(&self) -> Option<PromoteKind> {
         match *self {
             Self::PromoteKnight => Some(PromoteKind::Knight),
             Self::PromoteBishop => Some(PromoteKind::Bishop),
@@ -123,6 +123,21 @@ impl Move {
         side: None,
     };
 
+    pub fn castling(color: Color, side: CastlingSide) -> Move {
+        let rank = geometry::castling_rank(color);
+        let src = Coord::from_parts(File::E, rank);
+        let dst = match side {
+            CastlingSide::King => Coord::from_parts(File::G, rank),
+            CastlingSide::Queen => Coord::from_parts(File::C, rank),
+        };
+        Move {
+            kind: MoveKind::from_castling(side),
+            src,
+            dst,
+            side: Some(color),
+        }
+    }
+
     pub const unsafe fn new_unchecked(kind: MoveKind, src: Coord, dst: Coord, side: Color) -> Move {
         Move {
             kind,
@@ -146,6 +161,10 @@ impl Move {
         let res = uci::Move::from_str(s)?.into_move(b)?;
         res.validate(b)?;
         Ok(res)
+    }
+
+    pub fn from_san(s: &str, b: &Board) -> Result<Move, san::ParseError> {
+        Ok(san::Move::from_str(s)?.into_move(b)?)
     }
 
     pub fn semi_validate(&self, b: &Board) -> Result<(), ValidateError> {
@@ -270,6 +289,10 @@ impl Move {
 
     pub fn uci(&self) -> uci::Move {
         (*self).into()
+    }
+
+    pub fn san(&self, b: &Board) -> Result<san::Move, ValidateError> {
+        san::Move::from_move(*self, b)
     }
 }
 
@@ -465,7 +488,7 @@ fn do_make_move<C: generic::Color>(b: &mut Board, mv: Move) -> RawUndo {
         | MoveKind::PromoteBishop
         | MoveKind::PromoteRook
         | MoveKind::PromoteQueen => {
-            let promote = Cell::from_parts(C::COLOR, mv.kind.promote_to().unwrap().piece());
+            let promote = Cell::from_parts(C::COLOR, mv.kind.promote().unwrap().piece());
             let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
             b.r.put(mv.src, promote);
             b.r.put(mv.dst, Cell::EMPTY);
