@@ -434,7 +434,7 @@ impl<'a, C: generic::Color, P: MaybeMovePush> MoveGenImpl<'a, C, P> {
             Piece::Rook => attack::rook(dst, self.board.all),
             Piece::Queen => attack::bishop(dst, self.board.all) | attack::rook(dst, self.board.all),
         };
-        for src in mask & self.board.color(C::COLOR) {
+        for src in mask & self.board.piece2(C::COLOR, piece) {
             unsafe {
                 self.add_move(MoveKind::Simple, src, dst)?;
             }

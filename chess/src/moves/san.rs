@@ -18,6 +18,8 @@ pub enum RawParseError {
     EmptyString,
     #[error("invalid destination cell")]
     InvalidDst(#[from] CoordParseError),
+    #[error("simple move too long")]
+    SimpleMoveTooLong,
     #[error("pawn move too short")]
     PawnMoveTooShort,
     #[error("pawn move too long")]
@@ -460,6 +462,8 @@ impl FromStr for Data {
                 _ => unreachable!(),
             };
             let bytes = &bytes[1..];
+            let (bytes, dst_bytes) = bytes.split_at(bytes.len() - 2);
+            let dst = Coord::from_str(str::from_utf8(dst_bytes).unwrap())?;
             let (file, bytes) = match bytes.first() {
                 Some(b @ b'a'..=b'f') => (File::from_char(*b as char), &bytes[1..]),
                 _ => (None, bytes),
@@ -472,7 +476,9 @@ impl FromStr for Data {
                 Some(b'x' | b':') => (true, &bytes[1..]),
                 _ => (false, bytes),
             };
-            let dst = Coord::from_str(str::from_utf8(bytes).unwrap())?;
+            if !bytes.is_empty() {
+                return Err(RawParseError::SimpleMoveTooLong);
+            }
             return Ok(Data::Simple {
                 piece,
                 file,
@@ -619,3 +625,56 @@ impl FromStr for Move {
 }
 
 // TODO tests
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::moves::base;
+    use crate::board::Board;
+
+    #[test]
+    fn test_simple() {
+        let mut b = Board::initial();
+        for (mv_str, fen_str) in [
+            (
+                "e4",
+                "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+            ),
+            (
+                "Nc6",
+                "r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2",
+            ),
+            (
+                "Nf3",
+                "r1bqkbnr/pppppppp/2n5/8/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 2 2",
+            ),
+            (
+                "e5",
+                "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq e6 0 3",
+            ),
+            (
+                "Bb5",
+                "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 1 3",
+            ),
+            (
+                "Nf6",
+                "r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 4",
+            ),
+            (
+                "O-O",
+                "r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 3 4",
+            ),
+            (
+                "Nxe4",
+                "r1bqkb1r/pppp1ppp/2n5/1B2p3/4n3/5N2/PPPP1PPP/RNBQ1RK1 w kq - 0 5",
+            ),
+        ] {
+            let m = base::Move::from_san(mv_str, &b).unwrap();
+            assert_eq!(Move::from_str(mv_str).unwrap(), Move::from_move(m, &b).unwrap());
+            assert_eq!(m.san(&b).unwrap().to_string(), mv_str.to_string());
+            b = b.make_move(m).unwrap();
+            assert_eq!(b.as_fen(), fen_str);
+            assert_eq!(b.raw().try_into(), Ok(b.clone()));
+        }
+    }
+}
