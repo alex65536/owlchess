@@ -684,7 +684,7 @@ mod tests {
             (
                 "Kh1",
                 "r1b1kb1r/pppp1ppp/2n5/1B2p3/4n2q/5N2/PPPP1PPP/RNBQR2K b kq - 3 6",
-            )
+            ),
         ] {
             let m = base::Move::from_san(mv_str, &b).unwrap();
             assert_eq!(
@@ -796,7 +796,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_capture() {
         let b = Board::from_str("k5K1/8/p4q2/1P4n1/8/2P5/5q2/8 b - - 0 1").unwrap();
@@ -822,7 +821,9 @@ mod tests {
         );
         assert_eq!(
             base::Move::from_san("b5", &b),
-            Err(ParseError::Convert(IntoMoveError::Validate(ValidateError::NotSane)))
+            Err(ParseError::Convert(IntoMoveError::Validate(
+                ValidateError::NotSane
+            )))
         );
         assert_eq!(
             base::Move::from_san("axa5", &b),
@@ -858,7 +859,7 @@ mod tests {
                 "2n2n1n/3P2P1/8/8/8/8/3K1k2/8 w - - 0 1",
                 "g7f8r",
                 "gf=R",
-                "gxf8=R",
+                "gxf8=R+",
             ),
             (
                 "2n2n1n/3P2P1/8/8/8/8/3K1k2/8 w - - 0 1",
@@ -909,11 +910,21 @@ mod tests {
     fn test_pretty() {
         let b = Board::from_str("8/2P5/8/8/8/8/4k1K1/8 w - - 0 1").unwrap();
         assert_eq!(
-            base::Move::from_uci("g2h2", &b).unwrap().san(&b).unwrap().pretty().to_string(),
+            base::Move::from_uci("g2h2", &b)
+                .unwrap()
+                .san(&b)
+                .unwrap()
+                .pretty()
+                .to_string(),
             "♔h2".to_string()
         );
         assert_eq!(
-            base::Move::from_uci("c7c8b", &b).unwrap().san(&b).unwrap().pretty().to_string(),
+            base::Move::from_uci("c7c8b", &b)
+                .unwrap()
+                .san(&b)
+                .unwrap()
+                .pretty()
+                .to_string(),
             "c8♗".to_string()
         );
     }
@@ -922,11 +933,19 @@ mod tests {
     fn test_check() {
         let b = Board::from_str("1r5k/8/8/8/8/6p1/r7/5K2 b - - 0 1").unwrap();
         assert_eq!(
-            base::Move::from_uci("g3g2", &b).unwrap().san(&b).unwrap().to_string(),
+            base::Move::from_uci("g3g2", &b)
+                .unwrap()
+                .san(&b)
+                .unwrap()
+                .to_string(),
             "g2+".to_string(),
         );
         assert_eq!(
-            base::Move::from_uci("b8b1", &b).unwrap().san(&b).unwrap().to_string(),
+            base::Move::from_uci("b8b1", &b)
+                .unwrap()
+                .san(&b)
+                .unwrap()
+                .to_string(),
             "Rb1#".to_string(),
         );
         assert_eq!(

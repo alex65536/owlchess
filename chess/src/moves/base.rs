@@ -490,13 +490,14 @@ fn do_make_move<C: generic::Color>(b: &mut Board, mv: Move) -> RawUndo {
         | MoveKind::PromoteQueen => {
             let promote = Cell::from_parts(C::COLOR, mv.kind.promote().unwrap().piece());
             let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
-            b.r.put(mv.src, promote);
-            b.r.put(mv.dst, Cell::EMPTY);
+            b.r.put(mv.src, Cell::EMPTY);
+            b.r.put(mv.dst, promote);
             b.hash ^= zobrist::pieces(src_cell, mv.src)
                 ^ zobrist::pieces(promote, mv.dst)
                 ^ zobrist::pieces(dst_cell, mv.dst);
             *b.color_mut(C::COLOR) ^= change;
             *b.piece_mut(pawn) ^= src;
+            *b.piece_mut(promote) ^= dst;
             *b.color_mut(C::COLOR.inv()) &= !dst;
             *b.piece_mut(dst_cell) &= !dst;
             update_castling(b, change);
@@ -826,6 +827,25 @@ mod tests {
             b = b.make_move(m).unwrap();
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
+        }
+    }
+
+    #[test]
+    fn test_promote() {
+        let mut b = Board::from_fen("1b1b1K2/2P5/8/8/7k/8/8/8 w - - 0 1").unwrap();
+        let b_copy = b.clone();
+
+        for (mv_str, fen_str) in [
+            ("c7c8q", "1bQb1K2/8/8/8/7k/8/8/8 b - - 0 1"),
+            ("c7b8n", "1N1b1K2/8/8/8/7k/8/8/8 b - - 0 1"),
+            ("c7d8r", "1b1R1K2/8/8/8/7k/8/8/8 b - - 0 1"),
+        ] {
+            let m = Move::from_uci_semilegal(mv_str, &b).unwrap();
+            let u = unsafe { try_make_move_unchecked(&mut b, m).unwrap() };
+            assert_eq!(b.as_fen(), fen_str);
+            assert_eq!(b.raw().try_into(), Ok(b.clone()));
+            unsafe { unmake_move_unchecked(&mut b, m, u) };
+            assert_eq!(b, b_copy);
         }
     }
 

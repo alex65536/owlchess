@@ -1,5 +1,5 @@
 use crate::board::{self, Board};
-use crate::moves::{self, uci, san, Move, RawUndo, ValidateError};
+use crate::moves::{self, san, uci, Move, RawUndo, ValidateError};
 use crate::types::{Color, DrawKind, Outcome, OutcomeFilter};
 
 use std::collections::HashMap;
@@ -181,19 +181,25 @@ impl<R: Repeat> BaseMoveChain<R> {
 
     pub fn push_uci(&mut self, s: &str) -> Result<(), uci::ParseError> {
         let mv = Move::from_uci_semilegal(s, &self.board)?;
-        unsafe { self.try_push_unchecked(mv).map_err(uci::ParseError::Validate)?; }
+        unsafe {
+            self.try_push_unchecked(mv)
+                .map_err(uci::ParseError::Validate)?;
+        }
         Ok(())
     }
 
     pub fn push_san(&mut self, s: &str) -> Result<(), san::ParseError> {
         let mv = Move::from_san(s, &self.board)?;
-        unsafe { self.push_unchecked(mv); }
+        unsafe {
+            self.push_unchecked(mv);
+        }
         Ok(())
     }
 
     pub fn push_uci_list(&mut self, uci_list: &str) -> Result<(), UciParseError> {
         for (pos, token) in uci_list.split_ascii_whitespace().enumerate() {
-            self.push_uci(token).map_err(|source| UciParseError { pos, source })?;
+            self.push_uci(token)
+                .map_err(|source| UciParseError { pos, source })?;
         }
         Ok(())
     }
@@ -219,7 +225,10 @@ impl<R: Repeat> BaseMoveChain<R> {
     }
 
     pub fn san_list(&self, policy: NumberPolicy) -> SanList<'_, R> {
-        SanList {inner: self, policy}
+        SanList {
+            inner: self,
+            policy,
+        }
     }
 }
 
@@ -274,11 +283,15 @@ impl<'a> Walker<'a> {
         while self.board_pos > target {
             self.board_pos -= 1;
             let (mv, u) = self.stack[self.board_pos];
-            unsafe { moves::unmake_move_unchecked(&mut self.board, mv, u); }
+            unsafe {
+                moves::unmake_move_unchecked(&mut self.board, mv, u);
+            }
         }
         while self.board_pos < target {
             let (mv, _) = self.stack[self.board_pos];
-            unsafe { moves::make_move_unchecked(&mut self.board, mv); }
+            unsafe {
+                moves::make_move_unchecked(&mut self.board, mv);
+            }
             self.board_pos += 1;
         }
     }
@@ -348,10 +361,15 @@ impl<'a, R: Repeat> fmt::Display for SanList<'a, R> {
         while let Some((b, mv)) = walker.next() {
             if let Some(num) = start_num {
                 if b.side() == Color::White {
-                    write!(f, "{}. ", b.raw().move_number as usize - real_start_num + num)?;
+                    write!(
+                        f,
+                        " {}.",
+                        b.raw().move_number as usize - real_start_num + num
+                    )?;
                 }
             }
-            write!(f, " {}", mv.san(b).unwrap())?;
+            write!(f, " ")?;
+            write!(f, "{}", mv.san(b).unwrap())?;
         }
 
         Ok(())
@@ -359,4 +377,87 @@ impl<'a, R: Repeat> fmt::Display for SanList<'a, R> {
 }
 
 // TODO : tests
-// TODO : tests for SanMoveList
+// TODO : pretty SanMoveList (tests for it, and possibly a way to unify all the three formatters in a single function)
+// TODO : add from_san_list (what to do with move number marks? just ignore them?)
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::board::Board;
+
+    #[test]
+    fn test_san_move_list() {
+        let chain = MoveChain::from_uci_list(Board::initial(), "e2e4 e7e5 g1f3 d7d6 f1b5").unwrap();
+        assert_eq!(chain.len(), 5);
+        assert_eq!(
+            chain.last().as_fen(),
+            "rnbqkbnr/ppp2ppp/3p4/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 1 3"
+        );
+        assert_eq!(
+            chain.san_list(NumberPolicy::Omit).to_string(),
+            "e4 e5 Nf3 d6 Bb5+".to_string()
+        );
+        assert_eq!(
+            chain.san_list(NumberPolicy::FromBoard).to_string(),
+            "1. e4 e5 2. Nf3 d6 3. Bb5+".to_string()
+        );
+        assert_eq!(
+            chain.san_list(NumberPolicy::Custom(42)).to_string(),
+            "42. e4 e5 43. Nf3 d6 44. Bb5+".to_string()
+        );
+
+        let chain =
+            MoveChain::from_uci_list(Board::initial(), "e2e4 e7e5 g1f3 d7d6 f1b5 c7c6").unwrap();
+        assert_eq!(
+            chain.last().as_fen(),
+            "rnbqkbnr/pp3ppp/2pp4/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4"
+        );
+        assert_eq!(chain.len(), 6);
+        assert_eq!(
+            chain.san_list(NumberPolicy::Omit).to_string(),
+            "e4 e5 Nf3 d6 Bb5+ c6".to_string()
+        );
+        assert_eq!(
+            chain.san_list(NumberPolicy::FromBoard).to_string(),
+            "1. e4 e5 2. Nf3 d6 3. Bb5+ c6".to_string()
+        );
+        assert_eq!(
+            chain.san_list(NumberPolicy::Custom(42)).to_string(),
+            "42. e4 e5 43. Nf3 d6 44. Bb5+ c6".to_string()
+        );
+
+        let board = Board::from_fen("5K2/4P3/8/8/8/8/6p1/7k b - - 0 12").unwrap();
+        let chain = MoveChain::from_uci_list(board.clone(), "g2g1q e7e8q").unwrap();
+        assert_eq!(chain.last().as_fen(), "4QK2/8/8/8/8/8/8/6qk b - - 0 13");
+        assert_eq!(chain.len(), 2);
+        assert_eq!(
+            chain.san_list(NumberPolicy::Omit).to_string(),
+            "g1=Q e8=Q".to_string()
+        );
+        assert_eq!(
+            chain.san_list(NumberPolicy::FromBoard).to_string(),
+            "12... g1=Q 13. e8=Q".to_string()
+        );
+        assert_eq!(
+            chain.san_list(NumberPolicy::Custom(42)).to_string(),
+            "42... g1=Q 43. e8=Q".to_string()
+        );
+
+        let board = Board::from_fen("5K2/4P3/8/8/8/8/6p1/7k b - - 0 12").unwrap();
+        let chain = MoveChain::from_uci_list(board.clone(), "g2g1q e7e8q g1c5").unwrap();
+        assert_eq!(chain.last().as_fen(), "4QK2/8/8/2q5/8/8/8/7k w - - 1 14");
+        assert_eq!(chain.len(), 3);
+        assert_eq!(
+            chain.san_list(NumberPolicy::Omit).to_string(),
+            "g1=Q e8=Q Qc5+".to_string()
+        );
+        assert_eq!(
+            chain.san_list(NumberPolicy::FromBoard).to_string(),
+            "12... g1=Q 13. e8=Q Qc5+".to_string()
+        );
+        assert_eq!(
+            chain.san_list(NumberPolicy::Custom(42)).to_string(),
+            "42... g1=Q 43. e8=Q Qc5+".to_string()
+        );
+    }
+}
