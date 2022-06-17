@@ -59,9 +59,9 @@ trait PieceTheme {
     }
 }
 
-struct AlgebraicTheme;
+struct PrettyTheme;
 
-impl PieceTheme for AlgebraicTheme {
+impl PieceTheme for PrettyTheme {
     fn marker() -> PhantomData<Self> {
         PhantomData
     }
@@ -78,9 +78,9 @@ impl PieceTheme for AlgebraicTheme {
     }
 }
 
-struct PrettyTheme;
+struct AlgebraicTheme;
 
-impl PieceTheme for PrettyTheme {
+impl PieceTheme for AlgebraicTheme {
     fn marker() -> PhantomData<Self> {
         PhantomData
     }
@@ -300,7 +300,7 @@ impl Data {
                 Ok(mv)
             }
             Self::PawnMove { dst, promote } => {
-                if matches!(dst.rank(), Rank::R1 | Rank::R8) {
+                if dst.rank() == geometry::promote_src_rank(b.side().inv()) {
                     return Err(IntoMoveError::Create(CreateError::NotWellFormed));
                 }
                 let mut src = dst.add(-geometry::pawn_forward_delta(b.side()));
@@ -319,18 +319,23 @@ impl Data {
                 Ok(mv)
             }
             Self::PawnCapture { src, dst, promote } => {
-                if matches!(dst.rank(), Rank::R1 | Rank::R8) {
+                if dst.rank() == geometry::promote_src_rank(b.side().inv()) {
                     return Err(IntoMoveError::Create(CreateError::NotWellFormed));
                 }
-                if b.get(dst).is_empty() {
+                let mut kind = MoveKind::PawnSimple;
+                if let Some(enpassant) = b.r.enpassant {
+                    let expected_dst = enpassant.add(geometry::pawn_forward_delta(b.side()));
+                    if dst == expected_dst {
+                        kind = MoveKind::Enpassant;
+                    }
+                }
+                if kind != MoveKind::Enpassant && b.get(dst).is_empty() {
                     return Err(IntoMoveError::CaptureExpected);
                 }
                 let src =
                     Coord::from_parts(src, dst.rank()).add(-geometry::pawn_forward_delta(b.side()));
                 let mv = base::Move::new(
-                    promote
-                        .map(MoveKind::from_promote)
-                        .unwrap_or(MoveKind::PawnSimple),
+                    promote.map(MoveKind::from_promote).unwrap_or(kind),
                     src,
                     dst,
                     b.side(),
@@ -397,15 +402,7 @@ impl Data {
                 if piece == Piece::Pawn {
                     panic!("cannot store pawn move as Move::Simple");
                 }
-                let c = match piece {
-                    Piece::Pawn => panic!("cannot store pawn move as Move::Simple"),
-                    Piece::Knight => 'N',
-                    Piece::Bishop => 'B',
-                    Piece::Rook => 'R',
-                    Piece::Queen => 'Q',
-                    Piece::King => 'K',
-                };
-                write!(f, "{}", c)?;
+                write!(f, "{}", P::piece_to_char(piece))?;
                 if let Some(file) = file {
                     write!(f, "{}", file.as_char())?;
                 }
@@ -465,7 +462,7 @@ impl FromStr for Data {
             let (bytes, dst_bytes) = bytes.split_at(bytes.len() - 2);
             let dst = Coord::from_str(str::from_utf8(dst_bytes).unwrap())?;
             let (file, bytes) = match bytes.first() {
-                Some(b @ b'a'..=b'f') => (File::from_char(*b as char), &bytes[1..]),
+                Some(b @ b'a'..=b'h') => (File::from_char(*b as char), &bytes[1..]),
                 _ => (None, bytes),
             };
             let (rank, bytes) = match bytes.first() {
@@ -519,15 +516,16 @@ impl FromStr for Data {
 
         let (bytes, dst_bytes) = bytes.split_at(bytes.len() - 2);
         let dst = Coord::from_str(str::from_utf8(dst_bytes).unwrap())?;
+
         match bytes.len() {
             0 => Ok(Data::PawnMove { dst, promote }),
             1 => Err(RawParseError::Syntax),
             2 => {
-                if !matches!(bytes[0], b':' | b'x') || !matches!(bytes[1], b'a'..=b'h') {
+                if !matches!(bytes[0], b'a'..=b'h') || !matches!(bytes[1], b':' | b'x') {
                     return Err(RawParseError::Syntax);
                 }
                 Ok(Data::PawnCapture {
-                    src: File::from_char(bytes[1] as char).unwrap(),
+                    src: File::from_char(bytes[0] as char).unwrap(),
                     dst,
                     promote,
                 })
@@ -624,13 +622,13 @@ impl FromStr for Move {
     }
 }
 
-// TODO tests
+// TODO probably more tests
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::moves::base;
     use crate::board::Board;
+    use crate::moves::base;
 
     #[test]
     fn test_simple() {
@@ -668,13 +666,197 @@ mod tests {
                 "Nxe4",
                 "r1bqkb1r/pppp1ppp/2n5/1B2p3/4n3/5N2/PPPP1PPP/RNBQ1RK1 w kq - 0 5",
             ),
+            (
+                "Re1",
+                "r1bqkb1r/pppp1ppp/2n5/1B2p3/4n3/5N2/PPPP1PPP/RNBQR1K1 b kq - 1 5",
+            ),
+            (
+                "Qh4",
+                "r1b1kb1r/pppp1ppp/2n5/1B2p3/4n2q/5N2/PPPP1PPP/RNBQR1K1 w kq - 2 6",
+            ),
+            (
+                "Kh1",
+                "r1b1kb1r/pppp1ppp/2n5/1B2p3/4n2q/5N2/PPPP1PPP/RNBQR2K b kq - 3 6",
+            )
         ] {
             let m = base::Move::from_san(mv_str, &b).unwrap();
-            assert_eq!(Move::from_str(mv_str).unwrap(), Move::from_move(m, &b).unwrap());
+            assert_eq!(
+                Move::from_str(mv_str).unwrap(),
+                Move::from_move(m, &b).unwrap()
+            );
             assert_eq!(m.san(&b).unwrap().to_string(), mv_str.to_string());
             b = b.make_move(m).unwrap();
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
+        }
+    }
+
+    #[test]
+    fn test_pawn_conflict() {
+        let b = Board::from_str("8/8/1p6/2P5/1p5k/2P5/7K/8 w - - 0 1").unwrap();
+        assert!(matches!(
+            base::Move::from_san("cb", &b),
+            Err(ParseError::Convert(IntoMoveError::Ambiguity(_, _)))
+        ));
+        assert_eq!(
+            base::Move::from_san("cxb4", &b).unwrap(),
+            base::Move::from_uci("c3b4", &b).unwrap()
+        );
+        assert_eq!(
+            base::Move::from_san("cxb6", &b).unwrap(),
+            base::Move::from_uci("c5b6", &b).unwrap()
+        );
+        assert_eq!(
+            base::Move::from_san("cd", &b),
+            Err(ParseError::Convert(IntoMoveError::NotFound))
+        );
+    }
+
+    #[test]
+    fn test_conflict() {
+        let b = Board::from_str("k5K1/8/5q2/6n1/8/2P5/5q2/8 b - - 0 1").unwrap();
+        assert_eq!(
+            base::Move::from_san("Qe5", &b).unwrap(),
+            base::Move::from_uci("f6e5", &b).unwrap()
+        );
+        assert!(matches!(
+            base::Move::from_san("Qd4", &b),
+            Err(ParseError::Convert(IntoMoveError::Ambiguity(_, _)))
+        ));
+        assert_eq!(
+            base::Move::from_san("Qxc3", &b).unwrap(),
+            base::Move::from_uci("f6c3", &b).unwrap()
+        );
+        assert_eq!(
+            base::Move::from_san("Qb2", &b).unwrap(),
+            base::Move::from_uci("f2b2", &b).unwrap()
+        );
+        assert_eq!(
+            base::Move::from_san("Qa1", &b),
+            Err(ParseError::Convert(IntoMoveError::NotFound))
+        );
+        assert_eq!(
+            base::Move::from_san("Qg5", &b),
+            Err(ParseError::Convert(IntoMoveError::NotFound))
+        );
+        assert_eq!(
+            base::Move::from_san("Qe3", &b).unwrap(),
+            base::Move::from_uci("f2e3", &b).unwrap()
+        );
+        assert_eq!(
+            base::Move::from_san("Q2d4", &b).unwrap(),
+            base::Move::from_uci("f2d4", &b).unwrap()
+        );
+        assert_eq!(
+            base::Move::from_san("Q6d4", &b).unwrap(),
+            base::Move::from_uci("f6d4", &b).unwrap()
+        );
+        assert_eq!(
+            base::Move::from_san("Qf6d4", &b).unwrap(),
+            base::Move::from_uci("f6d4", &b).unwrap()
+        );
+        assert_eq!(
+            base::Move::from_san("Qfe5", &b).unwrap(),
+            base::Move::from_uci("f6e5", &b).unwrap()
+        );
+        assert_eq!(
+            base::Move::from_san("Q6e5", &b).unwrap(),
+            base::Move::from_uci("f6e5", &b).unwrap()
+        );
+        assert_eq!(
+            base::Move::from_san("Qf6e5", &b).unwrap(),
+            base::Move::from_uci("f6e5", &b).unwrap()
+        );
+        assert_eq!(
+            base::Move::from_san("Qge5", &b),
+            Err(ParseError::Convert(IntoMoveError::NotFound))
+        );
+        assert_eq!(
+            base::Move::from_san("Q5e5", &b),
+            Err(ParseError::Convert(IntoMoveError::NotFound))
+        );
+        assert_eq!(
+            base::Move::from_san("Qg5e5", &b),
+            Err(ParseError::Convert(IntoMoveError::NotFound))
+        );
+        assert!(matches!(
+            base::Move::from_san("Qfd4", &b),
+            Err(ParseError::Convert(IntoMoveError::Ambiguity(_, _)))
+        ));
+        assert_eq!(
+            base::Move::from_san("Kaa7", &b).unwrap(),
+            base::Move::from_uci("a8a7", &b).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_pawns() {
+        for (fen_str, uci_str, mv_str, real_mv_str) in [
+            ("8/8/8/4p3/3P4/8/3P4/5K1k w - - 0 1", "d4e5", "de", "dxe5"),
+            ("8/8/8/2PpP3/8/8/5k1K/8 w - d6 0 1", "c5d6", "cd", "cxd6"),
+            ("8/8/8/2PpP3/8/8/5k1K/8 w - d6 0 1", "e5d6", "ed", "exd6"),
+            ("8/8/8/3pP3/2P5/8/5k1K/8 w - d6 0 1", "c4d5", "cd", "cxd5"),
+            ("8/8/8/3pP3/2P5/8/5k1K/8 w - d6 0 1", "e5d6", "ed", "exd6"),
+            (
+                "2n2n1n/3P2P1/8/8/8/8/3K1k2/8 w - - 0 1",
+                "d7d8n",
+                "d8N",
+                "d8=N",
+            ),
+            (
+                "2n2n1n/3P2P1/8/8/8/8/3K1k2/8 w - - 0 1",
+                "d7c8b",
+                "dcB",
+                "dxc8=B",
+            ),
+            (
+                "2n2n1n/3P2P1/8/8/8/8/3K1k2/8 w - - 0 1",
+                "g7f8r",
+                "gf=R",
+                "gxf8=R",
+            ),
+            (
+                "2n2n1n/3P2P1/8/8/8/8/3K1k2/8 w - - 0 1",
+                "g7h8q",
+                "gh=Q",
+                "gxh8=Q",
+            ),
+            ("8/8/8/8/3p3k/2P5/1PP4K/8 w - - 0 1", "b2b3", "b3", "b3"),
+            ("8/8/8/8/3p3k/2P5/1PP4K/8 w - - 0 1", "b2b4", "b4", "b4"),
+            ("8/8/8/8/3p3k/2P5/1PP4K/8 w - - 0 1", "c3c4", "c4", "c4"),
+            ("8/8/8/8/3p3k/2P5/1PP4K/8 w - - 0 1", "c3d4", "cd", "cxd4"),
+        ] {
+            let b = Board::from_str(fen_str).unwrap();
+            let m = base::Move::from_san(mv_str, &b).unwrap();
+            assert_eq!(m, base::Move::from_uci(uci_str, &b).unwrap());
+            assert_eq!(m, base::Move::from_san(real_mv_str, &b).unwrap());
+            assert_eq!(m.san(&b).unwrap().to_string(), real_mv_str.to_string());
+            m.validate(&b).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_tricky() {
+        for (fen_str, uci_str, mv_str) in [
+            ("4k3/6K1/8/2N5/8/8/8/N7 w - - 0 1", "a1b3", "Nab3"),
+            ("4k3/6K1/8/N7/8/8/8/N7 w - - 0 1", "a1b3", "N1b3"),
+            ("4k3/6K1/8/8/8/8/8/N1N5 w - - 0 1", "a1b3", "Nab3"),
+            ("4k3/6K1/8/N1N5/8/8/8/N1N5 w - - 0 1", "a1b3", "Na1b3"),
+            ("5k2/8/5K2/8/3R3R/8/8/b7 w - - 0 1", "h4f4", "Rf4"),
+            ("4k3/6K1/8/2N5/8/1r6/8/N7 w - - 0 1", "a1b3", "Naxb3"),
+            ("4k3/6K1/8/N7/8/1r6/8/N7 w - - 0 1", "a1b3", "N1xb3"),
+            ("4k3/6K1/8/8/8/1r6/8/N1N5 w - - 0 1", "a1b3", "Naxb3"),
+            ("4k3/6K1/8/N1N5/8/1r6/8/N1N5 w - - 0 1", "a1b3", "Na1xb3"),
+        ] {
+            let b = Board::from_str(fen_str).unwrap();
+            let m = base::Move::from_san(mv_str, &b).unwrap();
+            assert_eq!(m, base::Move::from_uci(uci_str, &b).unwrap());
+            assert_eq!(
+                Move::from_str(mv_str).unwrap(),
+                Move::from_move(m, &b).unwrap()
+            );
+            assert_eq!(m.san(&b).unwrap().to_string(), mv_str.to_string());
+            m.validate(&b).unwrap();
         }
     }
 }

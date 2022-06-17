@@ -475,6 +475,28 @@ impl<'a, C: generic::Color, P: MaybeMovePush> MoveGenImpl<'a, C, P> {
                 }
             }
         }
+
+        if let Some(enpassant) = self.board.r.enpassant {
+            if enpassant.file() == dst && promote.is_none() {
+                let dst_coord =
+                    unsafe { enpassant.add_unchecked(geometry::pawn_forward_delta(C::COLOR)) };
+                // We assume that the cell behind the pawn that made double move is empty, so don't check it
+                let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
+                let (left_pawn, right_pawn) =
+                    unsafe { (enpassant.add_unchecked(-1), enpassant.add_unchecked(1)) };
+                if src.index() + 1 == dst.index() && self.board.get(left_pawn) == pawn {
+                    unsafe {
+                        self.add_move(MoveKind::Enpassant, left_pawn, dst_coord)?;
+                    }
+                }
+                if src.index() == dst.index() + 1 && self.board.get(right_pawn) == pawn {
+                    unsafe {
+                        self.add_move(MoveKind::Enpassant, right_pawn, dst_coord)?;
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 
