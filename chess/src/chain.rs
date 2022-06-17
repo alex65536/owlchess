@@ -1,4 +1,4 @@
-use crate::board::{self, Board};
+use crate::board::{self, RawBoard, Board};
 use crate::moves::{self, san, uci, Move, RawUndo, ValidateError};
 use crate::types::{Color, DrawKind, Outcome, OutcomeFilter};
 
@@ -55,6 +55,7 @@ pub type MoveChain = BaseMoveChain<HashRepeat>;
 
 #[derive(Debug, Clone)]
 pub struct BaseMoveChain<R: Repeat> {
+    start: RawBoard,
     board: Board,
     repeat: R,
     stack: Vec<(Move, RawUndo)>,
@@ -64,6 +65,7 @@ pub struct BaseMoveChain<R: Repeat> {
 impl<R: Repeat> BaseMoveChain<R> {
     pub fn new(b: Board) -> Self {
         let mut res = BaseMoveChain {
+            start: b.r,
             board: b,
             repeat: R::default(),
             stack: Vec::new(),
@@ -85,6 +87,10 @@ impl<R: Repeat> BaseMoveChain<R> {
 
     pub fn from_fen(s: &str) -> Result<Self, board::FenParseError> {
         Ok(Self::new(Board::from_fen(s)?))
+    }
+
+    pub fn startpos(&self) -> &RawBoard {
+        &self.start
     }
 
     pub fn last(&self) -> &Board {
