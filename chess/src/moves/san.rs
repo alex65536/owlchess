@@ -618,5 +618,4 @@ impl FromStr for Move {
     }
 }
 
-// TODO implement san_candidates in movegen
 // TODO tests

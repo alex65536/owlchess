@@ -276,10 +276,14 @@ impl<'a, C: generic::Color, P: MaybeMovePush> MoveGenImpl<'a, C, P> {
             let (left_pawn, right_pawn) =
                 unsafe { (enpassant.add_unchecked(-1), enpassant.add_unchecked(1)) };
             if file != File::A && self.board.get(left_pawn) == pawn {
-                unsafe { self.add_move(MoveKind::Enpassant, left_pawn, dst)? };
+                unsafe {
+                    self.add_move(MoveKind::Enpassant, left_pawn, dst)?;
+                }
             }
             if file != File::H && self.board.get(right_pawn) == pawn {
-                unsafe { self.add_move(MoveKind::Enpassant, right_pawn, dst)? };
+                unsafe {
+                    self.add_move(MoveKind::Enpassant, right_pawn, dst)?;
+                }
             }
         }
         Ok(())
@@ -307,7 +311,9 @@ impl<'a, C: generic::Color, P: MaybeMovePush> MoveGenImpl<'a, C, P> {
                 _ => unreachable!(),
             };
             for dst in attack & allowed {
-                unsafe { self.add_move(MoveKind::Simple, src, dst)? };
+                unsafe {
+                    self.add_move(MoveKind::Simple, src, dst)?;
+                }
             }
         }
         Ok(())
@@ -333,7 +339,9 @@ impl<'a, C: generic::Color, P: MaybeMovePush> MoveGenImpl<'a, C, P> {
                 false => attack::rook(src, self.board.all),
             };
             for dst in attack & allowed {
-                unsafe { self.add_move(MoveKind::Simple, src, dst)? };
+                unsafe {
+                    self.add_move(MoveKind::Simple, src, dst)?;
+                }
             }
         }
         Ok(())
@@ -356,7 +364,9 @@ impl<'a, C: generic::Color, P: MaybeMovePush> MoveGenImpl<'a, C, P> {
                 && !do_is_cell_attacked::<C>(self.board, src)
                 && !do_is_cell_attacked::<C>(self.board, tmp)
             {
-                unsafe { self.add_move(MoveKind::CastlingKingside, src, dst) }?;
+                unsafe {
+                    self.add_move(MoveKind::CastlingKingside, src, dst)?;
+                }
             }
         }
         if self.board.r.castling.has(C::COLOR, CastlingSide::Queen) {
@@ -368,7 +378,9 @@ impl<'a, C: generic::Color, P: MaybeMovePush> MoveGenImpl<'a, C, P> {
                 && !do_is_cell_attacked::<C>(self.board, src)
                 && !do_is_cell_attacked::<C>(self.board, tmp)
             {
-                unsafe { self.add_move(MoveKind::CastlingQueenside, src, dst) }?;
+                unsafe {
+                    self.add_move(MoveKind::CastlingQueenside, src, dst)?;
+                }
             }
         }
         Ok(())
@@ -410,9 +422,24 @@ impl<'a, C: generic::Color, P: MaybeMovePush> MoveGenImpl<'a, C, P> {
         Ok(())
     }
 
-    pub fn san_candidates(&mut self, _piece: Piece, _dst: Coord) -> Result<(), P::Err> {
-        // TODO
-        todo!()
+    pub fn san_candidates(&mut self, piece: Piece, dst: Coord) -> Result<(), P::Err> {
+        if self.board.get(dst).color() == Some(C::COLOR) {
+            return Ok(());
+        }
+        let mask = match piece {
+            Piece::Pawn => panic!("pawns are not supported here"),
+            Piece::King => attack::king(dst),
+            Piece::Knight => attack::knight(dst),
+            Piece::Bishop => attack::bishop(dst, self.board.all),
+            Piece::Rook => attack::rook(dst, self.board.all),
+            Piece::Queen => attack::bishop(dst, self.board.all) | attack::rook(dst, self.board.all),
+        };
+        for src in mask & self.board.color(C::COLOR) {
+            unsafe {
+                self.add_move(MoveKind::Simple, src, dst)?;
+            }
+        }
+        Ok(())
     }
 
     pub fn san_pawn_capture_candidates(
