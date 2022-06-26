@@ -729,6 +729,7 @@ impl<'a> Display for Pretty<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::{DrawKind, Outcome, WinKind};
     use std::mem;
 
     #[test]
@@ -825,5 +826,57 @@ mod tests {
             RawBoard::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 10").unwrap();
         assert_eq!(raw.move_counter, 10);
         assert_eq!(raw.move_number, 1);
+    }
+
+    #[test]
+    fn test_outcome() {
+        let b = Board::initial();
+        assert_eq!(b.calc_outcome(), None);
+
+        let b = Board::from_fen("rn1qkbnr/ppp2B1p/3p2p1/4N3/4P3/2N5/PPPP1PPP/R1BbK2R b KQkq - 0 6")
+            .unwrap();
+        assert_eq!(b.calc_outcome(), None);
+
+        let b = Board::from_fen("rn1q1bnr/ppp1kB1p/3p2p1/3NN3/4P3/8/PPPP1PPP/R1BbK2R b KQ - 2 7")
+            .unwrap();
+        assert!(!b.has_legal_moves());
+        assert_eq!(b.calc_outcome(), Some(Outcome::White(WinKind::Checkmate)));
+
+        let b = Board::from_fen("7K/8/5n2/5n2/8/8/7k/8 w - - 0 1").unwrap();
+        assert!(!b.has_legal_moves());
+        assert_eq!(b.calc_outcome(), Some(Outcome::Draw(DrawKind::Stalemate)));
+
+        let b = Board::from_fen("7K/8/5n2/8/8/8/7k/8 w - - 0 1").unwrap();
+        assert_eq!(
+            b.calc_outcome(),
+            Some(Outcome::Draw(DrawKind::InsufficientMaterial))
+        );
+
+        let b = Board::from_fen("7K/8/5b2/8/8/8/7k/8 w - - 0 1").unwrap();
+        assert_eq!(
+            b.calc_outcome(),
+            Some(Outcome::Draw(DrawKind::InsufficientMaterial))
+        );
+
+        let b = Board::from_fen("2K4k/8/8/8/B1B5/1B1B4/B1B5/1B1B4 w - - 0 1").unwrap();
+        assert_eq!(
+            b.calc_outcome(),
+            Some(Outcome::Draw(DrawKind::InsufficientMaterial))
+        );
+
+        let b = Board::from_fen("BBK4k/8/8/8/8/8/8/8 w - - 0 1").unwrap();
+        assert_eq!(b.calc_outcome(), None);
+
+        let b = Board::from_fen("NNK4k/8/8/8/8/8/8/8 w - - 0 1").unwrap();
+        assert_eq!(b.calc_outcome(), None);
+
+        let b = Board::from_fen("NNK4k/8/8/8/8/8/8/8 w - - 99 80").unwrap();
+        assert_eq!(b.calc_outcome(), None);
+
+        let b = Board::from_fen("NNK4k/8/8/8/8/8/8/8 w - - 100 80").unwrap();
+        assert_eq!(b.calc_outcome(), Some(Outcome::Draw(DrawKind::Moves50)));
+
+        let b = Board::from_fen("NNK4k/8/8/8/8/8/8/8 w - - 150 90").unwrap();
+        assert_eq!(b.calc_outcome(), Some(Outcome::Draw(DrawKind::Moves75)));
     }
 }
