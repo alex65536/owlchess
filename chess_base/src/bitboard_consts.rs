@@ -48,6 +48,7 @@ const RANK: [Bitboard; 8] = [
     Bitboard::from_raw(0xff00000000000000),
 ];
 
+#[inline]
 pub const fn rank(r: Rank) -> Bitboard {
     RANK[r.index()]
 }
@@ -63,6 +64,7 @@ const FILE: [Bitboard; 8] = [
     Bitboard::from_raw(0x8080808080808080),
 ];
 
+#[inline]
 pub const fn file(f: File) -> Bitboard {
     FILE[f.index()]
 }
