@@ -91,7 +91,7 @@ pub struct RawBoard {
 }
 
 impl RawBoard {
-    pub fn empty() -> RawBoard {
+    pub const fn empty() -> RawBoard {
         RawBoard {
             cells: [Cell::EMPTY; 64],
             side: Color::White,
@@ -132,24 +132,29 @@ impl RawBoard {
         RawBoard::from_str(fen)
     }
 
+    #[inline]
     pub fn get(&self, c: Coord) -> Cell {
         unsafe { *self.cells.get_unchecked(c.index()) }
     }
 
+    #[inline]
     pub fn get2(&self, file: File, rank: Rank) -> Cell {
         self.get(Coord::from_parts(file, rank))
     }
 
+    #[inline]
     pub fn put(&mut self, c: Coord, cell: Cell) {
         unsafe {
             *self.cells.get_unchecked_mut(c.index()) = cell;
         }
     }
 
+    #[inline]
     pub fn put2(&mut self, file: File, rank: Rank, cell: Cell) {
         self.put(Coord::from_parts(file, rank), cell);
     }
 
+    #[inline]
     pub fn zobrist_hash(&self) -> u64 {
         let mut hash = if self.side == Color::White {
             zobrist::MOVE_SIDE
@@ -178,6 +183,7 @@ impl RawBoard {
 }
 
 impl Default for RawBoard {
+    #[inline]
     fn default() -> RawBoard {
         RawBoard::empty()
     }
@@ -202,22 +208,27 @@ impl Board {
         Board::from_str(fen)
     }
 
+    #[inline]
     pub fn raw(&self) -> &RawBoard {
         &self.r
     }
 
+    #[inline]
     pub fn get(&self, c: Coord) -> Cell {
         self.r.get(c)
     }
 
+    #[inline]
     pub fn get2(&self, file: File, rank: Rank) -> Cell {
         self.r.get2(file, rank)
     }
 
+    #[inline]
     pub fn side(&self) -> Color {
         self.r.side
     }
 
+    #[inline]
     pub fn color(&self, c: Color) -> Bitboard {
         if c == Color::White {
             self.white
@@ -226,6 +237,7 @@ impl Board {
         }
     }
 
+    #[inline]
     pub(crate) fn color_mut(&mut self, c: Color) -> &mut Bitboard {
         if c == Color::White {
             &mut self.white
@@ -234,18 +246,22 @@ impl Board {
         }
     }
 
+    #[inline]
     pub fn piece(&self, c: Cell) -> Bitboard {
         unsafe { *self.pieces.get_unchecked(c.index()) }
     }
 
+    #[inline]
     pub fn piece2(&self, c: Color, p: Piece) -> Bitboard {
         self.piece(Cell::from_parts(c, p))
     }
 
+    #[inline]
     pub(crate) fn piece_mut(&mut self, c: Cell) -> &mut Bitboard {
         unsafe { self.pieces.get_unchecked_mut(c.index()) }
     }
 
+    #[inline]
     pub fn king_pos(&self, c: Color) -> Coord {
         self.piece(Cell::from_parts(c, Piece::King))
             .into_iter()
@@ -253,6 +269,7 @@ impl Board {
             .unwrap()
     }
 
+    #[inline]
     pub fn zobrist_hash(&self) -> u64 {
         self.hash
     }
@@ -261,6 +278,7 @@ impl Board {
         moves::make_move(self, mv)
     }
 
+    #[inline]
     pub fn is_opponent_king_attacked(&self) -> bool {
         let c = self.r.side;
         movegen::is_cell_attacked(self, self.king_pos(c.inv()), c)
@@ -270,6 +288,7 @@ impl Board {
         movegen::has_legal_moves(self)
     }
 
+    #[inline]
     pub fn is_check(&self) -> bool {
         let c = self.r.side;
         movegen::is_cell_attacked(self, self.king_pos(c), c.inv())
@@ -310,6 +329,7 @@ impl Board {
         false
     }
 
+    #[inline]
     pub fn calc_outcome(&self) -> Option<Outcome> {
         if let Some(draw) = self.is_draw_simple() {
             return Some(Outcome::Draw(draw));
