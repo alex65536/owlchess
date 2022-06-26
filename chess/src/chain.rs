@@ -101,6 +101,10 @@ impl<R: Repeat> BaseMoveChain<R> {
         self.stack.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.stack.is_empty()
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = Move> + '_ {
         self.stack.iter().map(|(m, _)| *m)
     }
@@ -118,7 +122,7 @@ impl<R: Repeat> BaseMoveChain<R> {
     }
 
     pub fn is_finished(&self) -> bool {
-        !self.outcome.is_none()
+        self.outcome.is_some()
     }
 
     pub fn clear_outcome(&mut self) {
@@ -280,6 +284,10 @@ impl<'a> Walker<'a> {
         self.stack.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.stack.is_empty()
+    }
+
     pub fn pos(&self) -> usize {
         self.pos
     }
@@ -301,7 +309,7 @@ impl<'a> Walker<'a> {
         }
     }
 
-    pub fn next(&mut self) -> Option<(&Board, Move)> {
+    pub fn walk_next(&mut self) -> Option<(&Board, Move)> {
         if self.pos == self.stack.len() {
             return None;
         }
@@ -310,7 +318,7 @@ impl<'a> Walker<'a> {
         Some((&self.board, self.stack[self.pos - 1].0))
     }
 
-    pub fn prev(&mut self) -> Option<(&Board, Move)> {
+    pub fn walk_prev(&mut self) -> Option<(&Board, Move)> {
         if self.pos == 0 {
             return None;
         }
@@ -350,7 +358,7 @@ pub struct StyledList<'a, R: Repeat> {
 
 impl<'a, R: Repeat> fmt::Display for StyledList<'a, R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        if self.inner.len() == 0 {
+        if self.inner.is_empty() {
             match self.status {
                 GameStatusPolicy::Show => write!(f, "{}", GameStatus::from(*self.inner.outcome()))?,
                 GameStatusPolicy::Hide => {}
@@ -359,7 +367,7 @@ impl<'a, R: Repeat> fmt::Display for StyledList<'a, R> {
         }
 
         let mut walker = self.inner.walk();
-        let (b, mv) = walker.next().unwrap();
+        let (b, mv) = walker.walk_next().unwrap();
         let real_start_num = b.raw().move_number as usize;
         let start_num = match self.nums {
             NumberPolicy::Omit => None,
@@ -375,7 +383,7 @@ impl<'a, R: Repeat> fmt::Display for StyledList<'a, R> {
         }
         write!(f, "{}", mv.styled(b, self.style).unwrap())?;
 
-        while let Some((b, mv)) = walker.next() {
+        while let Some((b, mv)) = walker.walk_next() {
             if let Some(num) = start_num {
                 if b.side() == Color::White {
                     write!(
