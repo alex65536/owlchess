@@ -2,6 +2,7 @@ use crate::bitboard::Bitboard;
 use crate::bitboard_consts;
 use crate::types::{Color, File};
 
+#[inline]
 pub fn advance_forward(c: Color, b: Bitboard) -> Bitboard {
     match c {
         Color::White => b.shr(8),
@@ -9,6 +10,7 @@ pub fn advance_forward(c: Color, b: Bitboard) -> Bitboard {
     }
 }
 
+#[inline]
 pub fn advance_left(c: Color, b: Bitboard) -> Bitboard {
     let b = b & !bitboard_consts::file(File::A);
     match c {
@@ -17,6 +19,7 @@ pub fn advance_left(c: Color, b: Bitboard) -> Bitboard {
     }
 }
 
+#[inline]
 pub fn advance_right(c: Color, b: Bitboard) -> Bitboard {
     let b = b & !bitboard_consts::file(File::H);
     match c {

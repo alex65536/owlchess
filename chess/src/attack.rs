@@ -1,6 +1,7 @@
 use crate::bitboard::Bitboard;
 use crate::types::{Color, Coord};
 
+#[inline]
 const fn bb(val: u64) -> Bitboard {
     Bitboard::from_raw(val)
 }

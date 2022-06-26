@@ -42,6 +42,7 @@ pub enum Style {
 }
 
 impl PromoteKind {
+    #[inline]
     pub const fn piece(&self) -> Piece {
         match self {
             PromoteKind::Knight => Piece::Knight,
@@ -51,6 +52,7 @@ impl PromoteKind {
         }
     }
 
+    #[inline]
     pub const fn from(p: Piece) -> Option<Self> {
         match p {
             Piece::Knight => Some(PromoteKind::Knight),
@@ -63,6 +65,7 @@ impl PromoteKind {
 }
 
 impl MoveKind {
+    #[inline]
     pub const fn from_castling(side: CastlingSide) -> Self {
         match side {
             CastlingSide::King => Self::CastlingKingside,
@@ -70,6 +73,7 @@ impl MoveKind {
         }
     }
 
+    #[inline]
     pub const fn from_promote(kind: PromoteKind) -> Self {
         match kind {
             PromoteKind::Knight => Self::PromoteKnight,
@@ -79,6 +83,7 @@ impl MoveKind {
         }
     }
 
+    #[inline]
     pub const fn castling(&self) -> Option<CastlingSide> {
         match *self {
             Self::CastlingKingside => Some(CastlingSide::King),
@@ -87,6 +92,7 @@ impl MoveKind {
         }
     }
 
+    #[inline]
     pub const fn promote(&self) -> Option<PromoteKind> {
         match *self {
             Self::PromoteKnight => Some(PromoteKind::Knight),
@@ -128,6 +134,7 @@ impl Move {
         side: None,
     };
 
+    #[inline]
     pub fn castling(color: Color, side: CastlingSide) -> Move {
         let rank = geometry::castling_rank(color);
         let src = Coord::from_parts(File::E, rank);
@@ -143,6 +150,7 @@ impl Move {
         }
     }
 
+    #[inline]
     pub const unsafe fn new_unchecked(kind: MoveKind, src: Coord, dst: Coord, side: Color) -> Move {
         Move {
             kind,
@@ -172,10 +180,12 @@ impl Move {
         Ok(san::Move::from_str(s)?.into_move(b)?)
     }
 
+    #[inline]
     pub fn semi_validate(&self, b: &Board) -> Result<(), ValidateError> {
         semi_validate(b, *self)
     }
 
+    #[inline]
     pub fn validate(&self, b: &Board) -> Result<(), ValidateError> {
         validate(b, *self)
     }
@@ -276,18 +286,22 @@ impl Move {
         true
     }
 
+    #[inline]
     pub const fn kind(&self) -> MoveKind {
         self.kind
     }
 
+    #[inline]
     pub const fn src(&self) -> Coord {
         self.src
     }
 
+    #[inline]
     pub const fn dst(&self) -> Coord {
         self.dst
     }
 
+    #[inline]
     pub const fn side(&self) -> Option<Color> {
         self.side
     }
@@ -316,6 +330,7 @@ impl Move {
 }
 
 impl Default for Move {
+    #[inline]
     fn default() -> Self {
         Move::NULL
     }
@@ -738,6 +753,7 @@ pub unsafe fn is_move_legal_unchecked(b: &Board, mv: Move) -> bool {
     !b_copy.is_opponent_king_attacked()
 }
 
+#[inline]
 pub fn semi_validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
     if !is_move_semilegal(b, mv) {
         return Err(ValidateError::NotSemiLegal);
@@ -745,6 +761,7 @@ pub fn semi_validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
     Ok(())
 }
 
+#[inline]
 pub fn validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
     semi_validate(b, mv)?;
     match unsafe { is_move_legal_unchecked(b, mv) } {

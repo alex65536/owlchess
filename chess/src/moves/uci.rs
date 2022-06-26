@@ -97,6 +97,7 @@ impl Move {
 }
 
 impl From<base::Move> for Move {
+    #[inline]
     fn from(mv: base::Move) -> Move {
         if mv.kind() == MoveKind::Null {
             return Move::Null;

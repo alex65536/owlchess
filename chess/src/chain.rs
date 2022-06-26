@@ -89,51 +89,63 @@ impl<R: Repeat> BaseMoveChain<R> {
         Ok(Self::new(Board::from_fen(s)?))
     }
 
+    #[inline]
     pub fn startpos(&self) -> &RawBoard {
         &self.start
     }
 
+    #[inline]
     pub fn last(&self) -> &Board {
         &self.board
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.stack.len()
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.stack.is_empty()
     }
 
+    #[inline]
     pub fn iter(&self) -> impl Iterator<Item = Move> + '_ {
         self.stack.iter().map(|(m, _)| *m)
     }
 
+    #[inline]
     pub fn get(&self, idx: usize) -> Move {
         self.stack[idx].0
     }
 
+    #[inline]
     pub unsafe fn get_unchecked(&self, idx: usize) -> Move {
         self.stack.get_unchecked(idx).0
     }
 
+    #[inline]
     pub fn outcome(&self) -> &Option<Outcome> {
         &self.outcome
     }
 
+    #[inline]
     pub fn is_finished(&self) -> bool {
         self.outcome.is_some()
     }
 
+    #[inline]
     pub fn clear_outcome(&mut self) {
         self.outcome = None;
     }
 
+    #[inline]
     pub fn set_outcome(&mut self, outcome: Outcome) {
         assert!(!self.is_finished());
         self.outcome = Some(outcome);
     }
 
+    #[inline]
     pub fn reset_outcome(&mut self, outcome: Option<Outcome>) {
         self.outcome = outcome;
     }
@@ -213,10 +225,12 @@ impl<R: Repeat> BaseMoveChain<R> {
         Some(m)
     }
 
+    #[inline]
     pub fn uci(&self) -> UciList<'_, R> {
         UciList(self)
     }
 
+    #[inline]
     pub fn walk(&self) -> Walker<'_> {
         Walker {
             board: self.board.clone(),
@@ -226,6 +240,7 @@ impl<R: Repeat> BaseMoveChain<R> {
         }
     }
 
+    #[inline]
     pub fn styled(
         &self,
         nums: NumberPolicy,
@@ -242,6 +257,7 @@ impl<R: Repeat> BaseMoveChain<R> {
 }
 
 impl<R: Repeat + Eq> PartialEq<Self> for BaseMoveChain<R> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         if self.board != other.board
             || self.repeat != other.repeat
@@ -280,14 +296,17 @@ pub struct Walker<'a> {
 }
 
 impl<'a> Walker<'a> {
+    #[inline]
     pub fn len(&self) -> usize {
         self.stack.len()
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.stack.is_empty()
     }
 
+    #[inline]
     pub fn pos(&self) -> usize {
         self.pos
     }
@@ -327,11 +346,13 @@ impl<'a> Walker<'a> {
         Some((&self.board, self.stack[self.pos].0))
     }
 
-    pub fn start(&mut self) {
+    #[inline]
+    pub fn walk_start(&mut self) {
         self.pos = 0;
     }
 
-    pub fn end(&mut self) {
+    #[inline]
+    pub fn walk_end(&mut self) {
         self.pos = self.stack.len();
     }
 }

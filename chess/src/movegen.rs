@@ -105,16 +105,6 @@ impl MoveList {
     pub fn new() -> MoveList {
         MoveList(ArrayVec::new())
     }
-
-    pub fn filter_legal(&mut self, b: &Board) {
-        let mut b_copy = b.clone();
-        self.retain(|&mut mv| unsafe {
-            let u = moves::make_move_unchecked(&mut b_copy, mv);
-            let ok = !b_copy.is_opponent_king_attacked();
-            moves::unmake_move_unchecked(&mut b_copy, mv, u);
-            ok
-        });
-    }
 }
 
 pub trait MovePush {
@@ -593,7 +583,13 @@ pub mod legal {
                 $(#[$attr])*
                 pub fn $name(b: &Board) -> MoveList {
                     let mut res = super::semilegal::$name(b);
-                    res.filter_legal(b);
+                    let mut b_copy = b.clone();
+                    res.retain(|&mut mv| unsafe {
+                        let u = crate::moves::make_move_unchecked(&mut b_copy, mv);
+                        let ok = !b_copy.is_opponent_king_attacked();
+                        crate::moves::unmake_move_unchecked(&mut b_copy, mv, u);
+                        ok
+                    });
                     res
                 }
             )*

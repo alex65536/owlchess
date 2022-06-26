@@ -249,6 +249,7 @@ impl MovePush for AmbigSearcher {
 }
 
 impl Data {
+    #[inline]
     pub fn styled(&self, style: Style) -> StyledData<'_> {
         StyledData(self, style)
     }
@@ -569,6 +570,7 @@ pub struct Move {
 pub struct StyledMove<'a>(&'a Move, Style);
 
 impl Move {
+    #[inline]
     pub fn styled(&self, style: Style) -> StyledMove<'_> {
         StyledMove(self, style)
     }

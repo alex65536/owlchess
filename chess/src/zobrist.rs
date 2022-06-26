@@ -2,6 +2,7 @@ use crate::types::{CastlingRights, CastlingSide, Cell, Color, Coord};
 
 include!(concat!(env!("OUT_DIR"), "/zobrist.rs"));
 
+#[inline]
 pub fn pieces(cell: Cell, coord: Coord) -> u64 {
     unsafe {
         *PIECES
@@ -10,14 +11,17 @@ pub fn pieces(cell: Cell, coord: Coord) -> u64 {
     }
 }
 
+#[inline]
 pub fn enpassant(coord: Coord) -> u64 {
     unsafe { *ENPASSANT.get_unchecked(coord.index()) }
 }
 
+#[inline]
 pub fn castling(rights: CastlingRights) -> u64 {
     unsafe { *CASTLING.get_unchecked(rights.index()) }
 }
 
+#[inline]
 pub fn castling_delta(color: Color, side: CastlingSide) -> u64 {
     match side {
         CastlingSide::Queen => unsafe { *CASTLING_QUEENSIDE.get_unchecked(color as u8 as usize) },

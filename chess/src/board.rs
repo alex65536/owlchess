@@ -284,6 +284,7 @@ impl Board {
         movegen::is_cell_attacked(self, self.king_pos(c.inv()), c)
     }
 
+    #[inline]
     pub fn has_legal_moves(&self) -> bool {
         movegen::has_legal_moves(self)
     }

@@ -1,6 +1,7 @@
 use crate::bitboard::Bitboard;
 use crate::types::{CastlingSide, Color};
 
+#[inline]
 pub const fn pass(c: Color, s: CastlingSide) -> Bitboard {
     let x = match s {
         CastlingSide::King => 0x60,
@@ -12,6 +13,7 @@ pub const fn pass(c: Color, s: CastlingSide) -> Bitboard {
     })
 }
 
+#[inline]
 pub const fn srcs(c: Color, s: CastlingSide) -> Bitboard {
     let x = match s {
         CastlingSide::King => 0x90,
