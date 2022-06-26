@@ -17,14 +17,17 @@ unsafe impl Sync for MagicEntry {}
 
 include!(concat!(env!("OUT_DIR"), "/magic.rs"));
 
+#[inline]
 pub fn king(coord: Coord) -> Bitboard {
     unsafe { *KING_ATTACKS.get_unchecked(coord.index()) }
 }
 
+#[inline]
 pub fn knight(coord: Coord) -> Bitboard {
     unsafe { *KNIGHT_ATTACKS.get_unchecked(coord.index()) }
 }
 
+#[inline]
 pub fn pawn(color: Color, coord: Coord) -> Bitboard {
     match color {
         Color::White => unsafe { *WHITE_PAWN_ATTACKS.get_unchecked(coord.index()) },
@@ -32,6 +35,7 @@ pub fn pawn(color: Color, coord: Coord) -> Bitboard {
     }
 }
 
+#[inline]
 pub fn rook(coord: Coord, occupied: Bitboard) -> Bitboard {
     unsafe {
         let entry = MAGIC_ROOK.get_unchecked(coord.index());
@@ -42,6 +46,7 @@ pub fn rook(coord: Coord, occupied: Bitboard) -> Bitboard {
     }
 }
 
+#[inline]
 pub fn bishop(coord: Coord, occupied: Bitboard) -> Bitboard {
     unsafe {
         let entry = MAGIC_BISHOP.get_unchecked(coord.index());

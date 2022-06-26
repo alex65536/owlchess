@@ -171,14 +171,6 @@ impl<R: Repeat> BaseMoveChain<R> {
         Ok(())
     }
 
-    pub fn push_weak(&mut self, mv: Move) -> Result<(), ValidateError> {
-        assert!(!self.is_finished());
-        if !moves::is_move_sane(&self.board, mv) {
-            return Err(ValidateError::NotSane);
-        }
-        unsafe { self.try_push_unchecked(mv) }
-    }
-
     pub fn push(&mut self, mv: Move) -> Result<(), ValidateError> {
         assert!(!self.is_finished());
         mv.semi_validate(&self.board)?;

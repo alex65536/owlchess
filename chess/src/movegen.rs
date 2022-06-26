@@ -7,6 +7,7 @@ use crate::{attack, bitboard_consts, castling, generic, geometry, pawns};
 use std::convert::Infallible;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+use std::slice;
 
 use arrayvec::ArrayVec;
 
@@ -79,6 +80,24 @@ impl Deref for MoveList {
 impl DerefMut for MoveList {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl<'a> IntoIterator for &'a MoveList {
+    type Item = &'a Move;
+    type IntoIter = slice::Iter<'a, Move>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut MoveList {
+    type Item = &'a mut Move;
+    type IntoIter = slice::IterMut<'a, Move>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter_mut()
     }
 }
 

@@ -108,8 +108,6 @@ pub struct Move {
 
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum ValidateError {
-    #[error("move is not sane")]
-    NotSane,
     #[error("move is not semi-legal")]
     NotSemiLegal,
     #[error("move is not legal")]
@@ -652,114 +650,82 @@ pub unsafe fn try_make_move_unchecked(b: &mut Board, mv: Move) -> Result<RawUndo
     Ok(u)
 }
 
-fn do_is_move_sane<C: generic::Color>(b: &Board, mv: Move) -> bool {
+fn do_is_move_semilegal<C: generic::Color>(b: &Board, mv: Move) -> bool {
+    if mv.side == Some(C::COLOR.inv()) {
+        return false;
+    }
     let src_cell = b.get(mv.src);
     let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
-    let dst = Bitboard::from_coord(mv.dst);
-    let bad_dsts = b.color(C::COLOR) | b.piece2(C::COLOR.inv(), Piece::King);
-    if let Some(c) = mv.side {
-        if c != C::COLOR {
-            return false;
-        }
-    }
     match mv.kind {
-        MoveKind::Null => true,
-        MoveKind::CastlingKingside => {
-            b.r.castling.has(C::COLOR, CastlingSide::King)
-                && (b.all & castling::pass(C::COLOR, CastlingSide::King)).is_empty()
-        }
-        MoveKind::CastlingQueenside => {
-            b.r.castling.has(C::COLOR, CastlingSide::Queen)
-                && (b.all & castling::pass(C::COLOR, CastlingSide::Queen)).is_empty()
-        }
         MoveKind::Simple => {
-            (dst & bad_dsts).is_empty() && src_cell.color() == Some(C::COLOR) && src_cell != pawn
-        }
-        kind => {
-            // This is a pawn move
-            if (dst & bad_dsts).is_nonempty() || src_cell != pawn {
+            let dst = Bitboard::from_coord(mv.dst);
+            if src_cell.color() != Some(C::COLOR) || (dst & b.color(C::COLOR)).is_nonempty() {
                 return false;
             }
-            match kind {
-                MoveKind::Enpassant => {
-                    if let Some(p) = b.r.enpassant {
-                        unsafe {
-                            return (p == mv.src.add_unchecked(1) || p == mv.src.add_unchecked(-1))
-                                && mv.dst
-                                    == p.add_unchecked(geometry::pawn_forward_delta(C::COLOR));
-                        }
-                    }
-                    false
-                }
-                MoveKind::PawnDouble => {
-                    let must_empty = match C::COLOR {
-                        Color::White => Bitboard::from_raw(0x0101 << (mv.src.index() - 16)),
-                        Color::Black => Bitboard::from_raw(0x010100 << mv.src.index()),
-                    };
-                    (b.all & must_empty).is_empty()
-                }
-                MoveKind::PawnSimple
-                | MoveKind::PromoteKnight
-                | MoveKind::PromoteBishop
-                | MoveKind::PromoteRook
-                | MoveKind::PromoteQueen => true,
-                MoveKind::Null
-                | MoveKind::CastlingKingside
-                | MoveKind::CastlingQueenside
-                | MoveKind::Simple => unreachable!(),
-            }
-        }
-    }
-}
-
-pub fn is_move_sane(b: &Board, mv: Move) -> bool {
-    match b.r.side {
-        Color::White => do_is_move_sane::<generic::White>(b, mv),
-        Color::Black => do_is_move_sane::<generic::Black>(b, mv),
-    }
-}
-
-fn do_is_move_semilegal<C: generic::Color>(b: &Board, mv: Move) -> bool {
-    match mv.kind {
-        MoveKind::Null => false,
-        MoveKind::CastlingKingside => {
-            let tmp = unsafe { mv.src.add_unchecked(1) };
-            !movegen::do_is_cell_attacked::<C::Inv>(b, mv.src)
-                && !movegen::do_is_cell_attacked::<C::Inv>(b, tmp)
-        }
-        MoveKind::CastlingQueenside => {
-            let tmp = unsafe { mv.src.add_unchecked(-1) };
-            !movegen::do_is_cell_attacked::<C::Inv>(b, mv.src)
-                && !movegen::do_is_cell_attacked::<C::Inv>(b, tmp)
-        }
-        MoveKind::PawnSimple
-        | MoveKind::PromoteKnight
-        | MoveKind::PromoteBishop
-        | MoveKind::PromoteRook
-        | MoveKind::PromoteQueen => {
-            let dst_cell = b.r.get(mv.dst);
-            (mv.dst.file() == mv.src.file()) == dst_cell.is_empty()
-        }
-        MoveKind::Simple => {
-            let src_cell = b.r.get(mv.src);
-            let dst = Bitboard::from_coord(mv.dst);
             match src_cell.piece() {
-                Some(Piece::King) => (attack::king(mv.src) & dst).is_nonempty(),
-                Some(Piece::Knight) => (attack::knight(mv.src) & dst).is_nonempty(),
                 Some(Piece::Bishop) => (attack::bishop(mv.src, b.all) & dst).is_nonempty(),
                 Some(Piece::Rook) => (attack::rook(mv.src, b.all) & dst).is_nonempty(),
                 Some(Piece::Queen) => {
                     (attack::bishop(mv.src, b.all) & dst).is_nonempty()
                         || (attack::rook(mv.src, b.all) & dst).is_nonempty()
                 }
+                Some(Piece::Knight) => (attack::knight(mv.src) & dst).is_nonempty(),
+                Some(Piece::King) => (attack::king(mv.src) & dst).is_nonempty(),
+                Some(Piece::Pawn) => false,
                 _ => unreachable!(),
             }
         }
-        MoveKind::Enpassant | MoveKind::PawnDouble => true,
+        MoveKind::PawnSimple
+        | MoveKind::PromoteKnight
+        | MoveKind::PromoteBishop
+        | MoveKind::PromoteRook
+        | MoveKind::PromoteQueen => {
+            if src_cell != pawn {
+                return false;
+            }
+            let dst_cell = b.r.get(mv.dst);
+            if let Some(c) = dst_cell.color() {
+                c == C::COLOR.inv() && mv.dst.file() != mv.src.file()
+            } else {
+                mv.dst.file() == mv.src.file()
+            }
+        }
+        MoveKind::PawnDouble => {
+            let must_empty = match C::COLOR {
+                Color::White => Bitboard::from_raw(0x0101 << (mv.src.index() - 16)),
+                Color::Black => Bitboard::from_raw(0x010100 << mv.src.index()),
+            };
+            src_cell == pawn && (b.all & must_empty).is_empty()
+        }
+        MoveKind::CastlingKingside => {
+            b.r.castling.has(C::COLOR, CastlingSide::King)
+                && (b.all & castling::pass(C::COLOR, CastlingSide::King)).is_empty()
+                && !movegen::do_is_cell_attacked::<C::Inv>(b, mv.src)
+                && !movegen::do_is_cell_attacked::<C::Inv>(b, unsafe { mv.src.add_unchecked(1) })
+        }
+        MoveKind::CastlingQueenside => {
+            b.r.castling.has(C::COLOR, CastlingSide::Queen)
+                && (b.all & castling::pass(C::COLOR, CastlingSide::Queen)).is_empty()
+                && !movegen::do_is_cell_attacked::<C::Inv>(b, mv.src)
+                && !movegen::do_is_cell_attacked::<C::Inv>(b, unsafe { mv.src.add_unchecked(-1) })
+        }
+        MoveKind::Enpassant => {
+            if src_cell != pawn {
+                return false;
+            }
+            if let Some(p) = b.r.enpassant {
+                unsafe {
+                    return (p == mv.src.add_unchecked(1) || p == mv.src.add_unchecked(-1))
+                        && mv.dst == p.add_unchecked(geometry::pawn_forward_delta(C::COLOR));
+                }
+            }
+            false
+        }
+        MoveKind::Null => false,
     }
 }
 
-pub unsafe fn is_move_semilegal_unchecked(b: &Board, mv: Move) -> bool {
+pub fn is_move_semilegal(b: &Board, mv: Move) -> bool {
     match b.r.side {
         Color::White => do_is_move_semilegal::<generic::White>(b, mv),
         Color::Black => do_is_move_semilegal::<generic::Black>(b, mv),
@@ -773,10 +739,7 @@ pub unsafe fn is_move_legal_unchecked(b: &Board, mv: Move) -> bool {
 }
 
 pub fn semi_validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
-    if !is_move_sane(b, mv) {
-        return Err(ValidateError::NotSane);
-    }
-    if unsafe { !is_move_semilegal_unchecked(b, mv) } {
+    if !is_move_semilegal(b, mv) {
         return Err(ValidateError::NotSemiLegal);
     }
     Ok(())
@@ -788,18 +751,6 @@ pub fn validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
         true => Ok(()),
         false => Err(ValidateError::NotLegal),
     }
-}
-
-pub fn make_move_weak(b: &Board, mv: Move) -> Result<Board, ValidateError> {
-    if !is_move_sane(b, mv) {
-        return Err(ValidateError::NotSane);
-    }
-    let mut b_copy = b.clone();
-    let _ = unsafe { make_move_unchecked(&mut b_copy, mv) };
-    if b_copy.is_opponent_king_attacked() {
-        return Err(ValidateError::NotLegal);
-    }
-    Ok(b_copy)
 }
 
 pub fn make_move(b: &Board, mv: Move) -> Result<Board, ValidateError> {
@@ -948,20 +899,20 @@ mod tests {
                 .unwrap();
 
         let m = Move::from_uci("e1c1", &b).unwrap();
-        assert!(!is_move_sane(&b, m));
-        assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSane));
+        assert!(!is_move_semilegal(&b, m));
+        assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSemiLegal));
 
         let m = Move::from_uci("b5e8", &b).unwrap();
-        assert!(!is_move_sane(&b, m));
-        assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSane));
+        assert!(!is_move_semilegal(&b, m));
+        assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSemiLegal));
 
         let m = Move::from_uci("a3a4", &b).unwrap();
-        assert!(!is_move_sane(&b, m));
-        assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSane));
+        assert!(!is_move_semilegal(&b, m));
+        assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSemiLegal));
 
         let m = Move::from_uci("e1d1", &b).unwrap();
-        assert!(!is_move_sane(&b, m));
-        assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSane));
+        assert!(!is_move_semilegal(&b, m));
+        assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSemiLegal));
 
         assert_eq!(
             Move::from_uci("c3c5", &b),

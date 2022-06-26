@@ -257,10 +257,6 @@ impl Board {
         self.hash
     }
 
-    pub fn make_move_weak(&self, mv: Move) -> Result<Self, moves::ValidateError> {
-        moves::make_move_weak(self, mv)
-    }
-
     pub fn make_move(&self, mv: Move) -> Result<Self, moves::ValidateError> {
         moves::make_move(self, mv)
     }

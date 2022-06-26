@@ -834,7 +834,7 @@ mod tests {
         assert_eq!(
             base::Move::from_san("b5", &b),
             Err(ParseError::Convert(IntoMoveError::Validate(
-                ValidateError::NotSane
+                ValidateError::NotSemiLegal
             )))
         );
         assert_eq!(
