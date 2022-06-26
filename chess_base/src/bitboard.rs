@@ -24,30 +24,37 @@ impl Bitboard {
     pub const EMPTY: Bitboard = Bitboard(0);
     pub const FULL: Bitboard = Bitboard(u64::MAX);
 
+    #[inline]
     pub const fn from_raw(val: u64) -> Bitboard {
         Bitboard(val)
     }
 
+    #[inline]
     pub const fn from_coord(coord: Coord) -> Bitboard {
         Bitboard(1_u64 << coord.index())
     }
 
+    #[inline]
     pub const fn with(self, coord: Coord) -> Bitboard {
         Bitboard(self.0 | (1_u64 << coord.index()))
     }
 
+    #[inline]
     pub const fn without(self, coord: Coord) -> Bitboard {
         Bitboard(self.0 & !(1_u64 << coord.index()))
     }
 
+    #[inline]
     pub const fn shl(self, by: usize) -> Bitboard {
         Bitboard(self.0 << by)
     }
 
+    #[inline]
     pub const fn shr(self, by: usize) -> Bitboard {
         Bitboard(self.0 >> by)
     }
 
+    #[inline]
     pub fn deposit_bits(&self, mut x: u64) -> Bitboard {
         let mut res: u64 = 0;
         let mut msk = self.0;
@@ -62,42 +69,51 @@ impl Bitboard {
         Bitboard(res)
     }
 
+    #[inline]
     pub fn set(&mut self, coord: Coord) {
         *self = self.with(coord);
     }
 
+    #[inline]
     pub fn unset(&mut self, coord: Coord) {
         *self = self.without(coord);
     }
 
+    #[inline]
     pub const fn has(&self, coord: Coord) -> bool {
         ((self.0 >> coord.index()) & 1) != 0
     }
 
+    #[inline]
     pub const fn as_raw(&self) -> u64 {
         self.0
     }
 
+    #[inline]
     pub const fn popcount(&self) -> u32 {
         self.0.count_ones()
     }
 
+    #[inline]
     pub const fn is_empty(&self) -> bool {
         self.0 == 0
     }
 
+    #[inline]
     pub const fn is_nonempty(&self) -> bool {
         self.0 != 0
     }
 }
 
 impl From<Bitboard> for u64 {
+    #[inline]
     fn from(b: Bitboard) -> u64 {
         b.0
     }
 }
 
 impl From<u64> for Bitboard {
+    #[inline]
     fn from(u: u64) -> Bitboard {
         Bitboard(u)
     }
@@ -132,6 +148,7 @@ pub struct Iter(u64);
 impl Iterator for Iter {
     type Item = Coord;
 
+    #[inline]
     fn next(&mut self) -> Option<Coord> {
         if self.0 == 0 {
             return None;
@@ -146,6 +163,7 @@ impl IntoIterator for Bitboard {
     type Item = Coord;
     type IntoIter = Iter;
 
+    #[inline]
     fn into_iter(self) -> Iter {
         Iter(self.0)
     }

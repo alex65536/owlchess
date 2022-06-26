@@ -53,10 +53,12 @@ pub enum File {
 }
 
 impl File {
+    #[inline]
     pub const fn index(&self) -> usize {
         *self as u8 as usize
     }
 
+    #[inline]
     pub const unsafe fn from_index_unchecked(val: usize) -> Self {
         match val {
             0 => File::A,
@@ -71,19 +73,23 @@ impl File {
         }
     }
 
+    #[inline]
     pub const fn from_index(val: usize) -> Self {
         assert!(val < 8, "file index must be between 0 and 7");
         unsafe { Self::from_index_unchecked(val) }
     }
 
+    #[inline]
     pub fn iter() -> impl Iterator<Item = Self> {
         (0..8).map(|x| unsafe { Self::from_index_unchecked(x) })
     }
 
+    #[inline]
     unsafe fn from_char_unchecked(c: char) -> Self {
         File::from_index_unchecked((u32::from(c) - u32::from('a')) as usize)
     }
 
+    #[inline]
     pub fn from_char(c: char) -> Option<Self> {
         match c {
             'a'..='h' => Some(unsafe { Self::from_char_unchecked(c) }),
@@ -91,6 +97,7 @@ impl File {
         }
     }
 
+    #[inline]
     pub fn as_char(&self) -> char {
         (b'a' + *self as u8) as char
     }
@@ -116,10 +123,12 @@ pub enum Rank {
 }
 
 impl Rank {
+    #[inline]
     pub const fn index(&self) -> usize {
         *self as u8 as usize
     }
 
+    #[inline]
     pub const unsafe fn from_index_unchecked(val: usize) -> Self {
         match val {
             0 => Rank::R8,
@@ -134,19 +143,23 @@ impl Rank {
         }
     }
 
+    #[inline]
     pub const fn from_index(val: usize) -> Self {
         assert!(val < 8, "rank index must be between 0 and 7");
         unsafe { Self::from_index_unchecked(val) }
     }
 
+    #[inline]
     pub fn iter() -> impl Iterator<Item = Self> {
         (0..8).map(|x| unsafe { Self::from_index_unchecked(x) })
     }
 
+    #[inline]
     unsafe fn from_char_unchecked(c: char) -> Self {
         Rank::from_index_unchecked((u32::from('8') - u32::from(c)) as usize)
     }
 
+    #[inline]
     pub fn from_char(c: char) -> Option<Self> {
         match c {
             '1'..='8' => Some(unsafe { Self::from_char_unchecked(c) }),
@@ -154,6 +167,7 @@ impl Rank {
         }
     }
 
+    #[inline]
     pub fn as_char(&self) -> char {
         (b'8' - *self as u8) as char
     }
@@ -169,55 +183,68 @@ impl fmt::Display for Rank {
 pub struct Coord(u8);
 
 impl Coord {
+    #[inline]
     pub const fn from_index(val: usize) -> Coord {
         assert!(val < 64, "coord must be between 0 and 63");
         Coord(val as u8)
     }
 
+    #[inline]
     pub const unsafe fn from_index_unchecked(val: usize) -> Coord {
         Coord(val as u8)
     }
 
+    #[inline]
     pub const fn from_parts(file: File, rank: Rank) -> Coord {
         Coord(((rank as u8) << 3) | file as u8)
     }
 
+    #[inline]
     pub const fn file(&self) -> File {
         unsafe { File::from_index_unchecked((self.0 & 7) as usize) }
     }
 
+    #[inline]
     pub const fn rank(&self) -> Rank {
         unsafe { Rank::from_index_unchecked((self.0 >> 3) as usize) }
     }
 
+    #[inline]
     pub const fn index(&self) -> usize {
         self.0 as usize
     }
 
+    #[inline]
     pub const fn flipped_rank(self) -> Coord {
         Coord(self.0 ^ 56)
     }
 
+    #[inline]
     pub const fn flipped_file(self) -> Coord {
         Coord(self.0 ^ 7)
     }
 
+    #[inline]
     pub const fn diag1(&self) -> usize {
         self.file().index() + self.rank().index()
     }
 
+    #[inline]
     pub const fn diag2(&self) -> usize {
         7 - self.rank().index() + self.file().index()
     }
 
+    #[inline]
     pub const fn add(self, delta: isize) -> Coord {
         Coord::from_index(self.index().wrapping_add(delta as usize))
     }
 
+    #[inline]
     pub const unsafe fn add_unchecked(self, delta: isize) -> Coord {
         Coord::from_index_unchecked(self.index().wrapping_add(delta as usize))
     }
 
+    #[inline]
     pub fn try_shift(self, delta_file: isize, delta_rank: isize) -> Option<Coord> {
         let new_file = self.file().index().wrapping_add(delta_file as usize);
         let new_rank = self.rank().index().wrapping_add(delta_rank as usize);
@@ -232,6 +259,7 @@ impl Coord {
         }
     }
 
+    #[inline]
     pub fn iter() -> impl Iterator<Item = Self> {
         (0_u8..64_u8).map(Coord)
     }
@@ -276,6 +304,7 @@ pub enum Color {
 }
 
 impl Color {
+    #[inline]
     pub const fn inv(&self) -> Color {
         match *self {
             Color::White => Color::Black,
@@ -283,6 +312,7 @@ impl Color {
         }
     }
 
+    #[inline]
     pub fn as_char(&self) -> char {
         match *self {
             Color::White => 'w',
@@ -290,6 +320,7 @@ impl Color {
         }
     }
 
+    #[inline]
     pub fn from_char(c: char) -> Option<Color> {
         match c {
             'w' => Some(Color::White),
@@ -335,27 +366,33 @@ impl Cell {
     pub const EMPTY: Cell = Cell(0);
     pub const MAX_INDEX: usize = 13;
 
+    #[inline]
     pub const fn is_empty(&self) -> bool {
         self.0 == 0
     }
 
+    #[inline]
     pub const fn is_occupied(&self) -> bool {
         self.0 != 0
     }
 
+    #[inline]
     pub const unsafe fn from_index_unchecked(val: usize) -> Cell {
         Cell(val as u8)
     }
 
+    #[inline]
     pub const fn from_index(val: usize) -> Cell {
         assert!(val < Self::MAX_INDEX, "index too large");
         Cell(val as u8)
     }
 
+    #[inline]
     pub const fn index(&self) -> usize {
         self.0 as usize
     }
 
+    #[inline]
     pub const fn from_parts(c: Color, p: Piece) -> Cell {
         Cell(match c {
             Color::White => 1 + p as u8,
@@ -363,6 +400,7 @@ impl Cell {
         })
     }
 
+    #[inline]
     pub const fn color(&self) -> Option<Color> {
         match self.0 {
             0 => None,
@@ -371,6 +409,7 @@ impl Cell {
         }
     }
 
+    #[inline]
     pub const fn piece(&self) -> Option<Piece> {
         match self.0 {
             0 => None,
@@ -384,20 +423,24 @@ impl Cell {
         }
     }
 
+    #[inline]
     pub fn iter() -> impl Iterator<Item = Self> {
         (0..Self::MAX_INDEX).map(|x| unsafe { Self::from_index_unchecked(x) })
     }
 
+    #[inline]
     pub fn as_char(&self) -> char {
         b".PKNBRQpknbrq"[self.0 as usize] as char
     }
 
+    #[inline]
     pub fn as_utf8_char(&self) -> char {
         [
             '.', '♙', '♔', '♘', '♗', '♖', '♕', '♟', '♚', '♞', '♝', '♜', '♛',
         ][self.0 as usize]
     }
 
+    #[inline]
     pub fn from_char(c: char) -> Option<Self> {
         if c == '.' {
             return Some(Cell::EMPTY);
@@ -458,6 +501,7 @@ pub enum CastlingSide {
 pub struct CastlingRights(u8);
 
 impl CastlingRights {
+    #[inline]
     const fn to_index(c: Color, s: CastlingSide) -> u8 {
         ((c as u8) << 1) | s as u8
     }
@@ -465,36 +509,44 @@ impl CastlingRights {
     pub const EMPTY: CastlingRights = CastlingRights(0);
     pub const FULL: CastlingRights = CastlingRights(15);
 
+    #[inline]
     pub const fn has(&self, c: Color, s: CastlingSide) -> bool {
         ((self.0 >> Self::to_index(c, s)) & 1) != 0
     }
 
+    #[inline]
     pub fn flip(&mut self, c: Color, s: CastlingSide) {
         self.0 ^= 1_u8 << Self::to_index(c, s)
     }
 
+    #[inline]
     pub const fn with(self, c: Color, s: CastlingSide) -> CastlingRights {
         CastlingRights(self.0 | (1_u8 << Self::to_index(c, s)))
     }
 
+    #[inline]
     pub fn set(&mut self, c: Color, s: CastlingSide) {
         *self = self.with(c, s)
     }
 
+    #[inline]
     pub fn unset(&mut self, c: Color, s: CastlingSide) {
         self.0 &= !(1_u8 << Self::to_index(c, s))
     }
 
+    #[inline]
     pub fn unset_color(&mut self, c: Color) {
         self.unset(c, CastlingSide::King);
         self.unset(c, CastlingSide::Queen);
     }
 
+    #[inline]
     pub const fn from_index(val: usize) -> CastlingRights {
         assert!(val < 16, "raw castling rights must be between 0 and 15");
         CastlingRights(val as u8)
     }
 
+    #[inline]
     pub const fn index(&self) -> usize {
         self.0 as usize
     }
@@ -595,6 +647,7 @@ pub enum OutcomeFilter {
 }
 
 impl Outcome {
+    #[inline]
     pub fn winner(&self) -> Option<Color> {
         match self {
             Self::White(_) => Some(Color::White),
@@ -603,6 +656,7 @@ impl Outcome {
         }
     }
 
+    #[inline]
     pub fn win(color: Color, kind: WinKind) -> Outcome {
         match color {
             Color::White => Self::White(kind),
@@ -610,6 +664,7 @@ impl Outcome {
         }
     }
 
+    #[inline]
     pub fn is_force(&self) -> bool {
         matches!(
             *self,
@@ -619,6 +674,7 @@ impl Outcome {
         )
     }
 
+    #[inline]
     pub fn is_auto(&self, filter: OutcomeFilter) -> bool {
         if self.is_force() {
             return true;
@@ -645,6 +701,7 @@ pub enum GameStatus {
 }
 
 impl From<Option<Outcome>> for GameStatus {
+    #[inline]
     fn from(src: Option<Outcome>) -> Self {
         match src {
             Some(Outcome::White(_)) => Self::White,
