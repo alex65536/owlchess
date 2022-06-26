@@ -792,6 +792,21 @@ mod tests {
     }
 
     #[test]
+    fn test_style() {
+        let b = Board::initial();
+        let mv = Move::from_uci("g1f3", &b).unwrap();
+        assert_eq!(mv.styled(&b, Style::Uci).unwrap().to_string(), "g1f3");
+        assert_eq!(mv.styled(&b, Style::San).unwrap().to_string(), "Nf3");
+        assert_eq!(mv.styled(&b, Style::SanUtf8).unwrap().to_string(), "♘f3");
+        assert_eq!(mv.uci().to_string(), "g1f3");
+        assert_eq!(mv.san(&b).unwrap().to_string(), "Nf3");
+        assert_eq!(
+            mv.san(&b).unwrap().styled(san::Style::Utf8).to_string(),
+            "♘f3"
+        );
+    }
+
+    #[test]
     fn test_simple() {
         let mut b = Board::initial();
         for (mv_str, fen_str) in [

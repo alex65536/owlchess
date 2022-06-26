@@ -155,3 +155,40 @@ impl FromStr for Move {
         Ok(Move::Move { src, dst, promote })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::board::Board;
+    use crate::types::{Color, Coord, File, Rank};
+
+    #[test]
+    fn test_simple() {
+        assert_eq!(Move::from_str("0000").unwrap(), Move::Null);
+        assert_eq!(
+            Move::from_str("0000")
+                .unwrap()
+                .into_move(&Board::initial())
+                .unwrap(),
+            base::Move::NULL
+        );
+
+        let e2 = Coord::from_parts(File::E, Rank::R2);
+        let e4 = Coord::from_parts(File::E, Rank::R4);
+        assert_eq!(
+            Move::from_str("e2e4").unwrap(),
+            Move::Move {
+                src: e2,
+                dst: e4,
+                promote: None
+            }
+        );
+        assert_eq!(
+            Move::from_str("e2e4")
+                .unwrap()
+                .into_move(&Board::initial())
+                .unwrap(),
+            base::Move::new(MoveKind::PawnDouble, e2, e4, Color::White).unwrap(),
+        );
+    }
+}
