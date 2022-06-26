@@ -221,6 +221,7 @@ impl<R: Repeat> BaseMoveChain<R> {
     pub fn pop(&mut self) -> Option<Move> {
         let (m, u) = self.stack.pop()?;
         self.repeat.pop(&self.board);
+        self.clear_outcome();
         unsafe { moves::unmake_move_unchecked(&mut self.board, m, u) };
         Some(m)
     }
@@ -426,13 +427,195 @@ impl<'a, R: Repeat> fmt::Display for StyledList<'a, R> {
     }
 }
 
-// TODO : more tests
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::board::Board;
-    use crate::types::{DrawKind, Outcome};
+    use crate::types::{DrawKind, Outcome, OutcomeFilter, WinKind};
+
+    #[test]
+    fn test_simple() {
+        let mut chain =
+            MoveChain::from_fen("rnbqk1nr/ppp1bppp/3p4/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 3 4")
+                .unwrap();
+        assert_eq!(
+            chain.last().as_fen(),
+            "rnbqk1nr/ppp1bppp/3p4/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 3 4"
+        );
+        assert_eq!(
+            chain.startpos().as_fen(),
+            "rnbqk1nr/ppp1bppp/3p4/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 3 4"
+        );
+        assert_eq!(chain.len(), 0);
+
+        chain.push_uci("g8f6").unwrap();
+        assert_eq!(
+            chain.last().as_fen(),
+            "rnbqk2r/ppp1bppp/3p1n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 w kq - 4 5"
+        );
+        assert_eq!(
+            chain.startpos().as_fen(),
+            "rnbqk1nr/ppp1bppp/3p4/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 3 4"
+        );
+        assert_eq!(chain.len(), 1);
+
+        chain.push_uci("d2d4").unwrap();
+        assert_eq!(
+            chain.last().as_fen(),
+            "rnbqk2r/ppp1bppp/3p1n2/4p3/2BPP3/5N2/PPP2PPP/RNBQ1RK1 b kq d3 0 5"
+        );
+        assert_eq!(
+            chain.startpos().as_fen(),
+            "rnbqk1nr/ppp1bppp/3p4/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 3 4"
+        );
+        assert_eq!(chain.len(), 2);
+
+        chain.pop().unwrap();
+        assert_eq!(
+            chain.last().as_fen(),
+            "rnbqk2r/ppp1bppp/3p1n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 w kq - 4 5"
+        );
+        assert_eq!(
+            chain.startpos().as_fen(),
+            "rnbqk1nr/ppp1bppp/3p4/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 3 4"
+        );
+        assert_eq!(chain.len(), 1);
+
+        chain.push_san("d4").unwrap();
+        assert_eq!(
+            chain.last().as_fen(),
+            "rnbqk2r/ppp1bppp/3p1n2/4p3/2BPP3/5N2/PPP2PPP/RNBQ1RK1 b kq d3 0 5"
+        );
+        assert_eq!(
+            chain.startpos().as_fen(),
+            "rnbqk1nr/ppp1bppp/3p4/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 3 4"
+        );
+        assert_eq!(chain.len(), 2);
+
+        assert_eq!(
+            chain.iter().map(|m| m.to_string()).collect::<Vec<_>>(),
+            vec!["g8f6", "d2d4"]
+        );
+        assert_eq!(chain.get(0).to_string(), "g8f6");
+        assert_eq!(chain.get(1).to_string(), "d2d4");
+        assert_eq!(chain.uci().to_string(), "g8f6 d2d4");
+    }
+
+    #[test]
+    fn test_repeat() {
+        let mut chain = MoveChain::new_initial();
+        assert!(!chain.is_finished());
+        assert_eq!(chain.outcome(), &None);
+
+        chain
+            .push_uci_list("g1f3 b8c6 f3g1 c6b8 g1f3 b8c6 f3g1 c6b8")
+            .unwrap();
+        assert_eq!(chain.outcome(), &None);
+        assert_eq!(chain.calc_outcome(), Some(Outcome::Draw(DrawKind::Repeat3)));
+
+        let _ = chain.set_auto_outcome(OutcomeFilter::Strict);
+        assert_eq!(chain.outcome(), &None);
+
+        chain
+            .push_uci_list("g1f3 b8c6 f3g1 c6b8 g1f3 b8c6 f3g1 c6b8")
+            .unwrap();
+        assert_eq!(chain.outcome(), &None);
+        assert_eq!(chain.calc_outcome(), Some(Outcome::Draw(DrawKind::Repeat5)));
+
+        let _ = chain.set_auto_outcome(OutcomeFilter::Strict);
+        assert!(chain.is_finished());
+        assert_eq!(chain.outcome(), &Some(Outcome::Draw(DrawKind::Repeat5)));
+
+        chain.pop().unwrap();
+        assert!(!chain.is_finished());
+        assert_eq!(chain.outcome(), &None);
+
+        chain.set_auto_outcome(OutcomeFilter::Relaxed);
+        assert!(chain.is_finished());
+        assert_eq!(chain.outcome(), &Some(Outcome::Draw(DrawKind::Repeat3)));
+
+        assert_eq!(
+            chain.uci().to_string(),
+            "g1f3 b8c6 f3g1 c6b8 g1f3 b8c6 f3g1 c6b8 g1f3 b8c6 f3g1 c6b8 g1f3 b8c6 f3g1"
+        );
+    }
+
+    #[test]
+    fn test_checkmate() {
+        let mut chain = MoveChain::new_initial();
+        chain.push_uci_list("g2g4 e7e5 f2f4 d8h4").unwrap();
+        assert_eq!(
+            chain.set_auto_outcome(OutcomeFilter::Force),
+            Some(Outcome::Black(WinKind::Checkmate)),
+        );
+        assert!(chain.is_finished());
+        assert_eq!(chain.outcome(), &Some(Outcome::Black(WinKind::Checkmate)));
+
+        assert_eq!(
+            chain
+                .styled(
+                    NumberPolicy::FromBoard,
+                    moves::Style::San,
+                    GameStatusPolicy::Show,
+                )
+                .to_string(),
+            "1. g4 e5 2. f4 Qh4# 0-1".to_string()
+        );
+    }
+
+    #[test]
+    fn test_walker() {
+        let mut chain = MoveChain::new_initial();
+        for mv in [
+            "e4", "e5", "Nf3", "d6", "Bc4", "Bg4", "Nc3", "g6", "Nxe5", "Bxd1", "Bxf7", "Ke7",
+            "Nd5#",
+        ] {
+            chain.push_san(mv).unwrap();
+        }
+
+        let mut w = chain.walk();
+        assert_eq!(w.len(), 13);
+
+        assert_eq!(w.pos(), 0);
+        assert_eq!(w.walk_prev(), None);
+        assert_eq!(w.pos(), 0);
+
+        w.walk_start();
+        assert_eq!(w.pos(), 0);
+        assert_eq!(w.walk_prev(), None);
+        assert_eq!(w.pos(), 0);
+
+        w.walk_end();
+        assert_eq!(w.pos(), 13);
+        assert_eq!(w.walk_next(), None);
+        assert_eq!(w.pos(), 13);
+
+        w.walk_prev().unwrap();
+        w.walk_prev().unwrap();
+        let (b, mv) = w.walk_prev().unwrap();
+        assert_eq!(
+            b.as_fen(),
+            "rn1qkbnr/ppp2p1p/3p2p1/4N3/2B1P3/2N5/PPPP1PPP/R1BbK2R w KQkq - 0 6"
+        );
+        assert_eq!(mv.san(b).unwrap().to_string(), "Bxf7+");
+        assert_eq!(w.pos(), 10);
+
+        let (b, mv) = w.walk_next().unwrap();
+        assert_eq!(
+            b.as_fen(),
+            "rn1qkbnr/ppp2p1p/3p2p1/4N3/2B1P3/2N5/PPPP1PPP/R1BbK2R w KQkq - 0 6"
+        );
+        assert_eq!(mv.san(b).unwrap().to_string(), "Bxf7+");
+        assert_eq!(w.pos(), 11);
+
+        let (b, mv) = w.walk_next().unwrap();
+        assert_eq!(
+            b.as_fen(),
+            "rn1qkbnr/ppp2B1p/3p2p1/4N3/4P3/2N5/PPPP1PPP/R1BbK2R b KQkq - 0 6"
+        );
+        assert_eq!(mv.san(b).unwrap().to_string(), "Ke7");
+        assert_eq!(w.pos(), 12);
+    }
 
     #[test]
     fn test_styled() {
