@@ -12,3 +12,10 @@ arrayvec = "0.7.2"
 owlchess_base = { path = "../chess_base" }
 rand_xoshiro = "0.6.0"
 rand_core = "0.6.3"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "chess"
+harness = false
