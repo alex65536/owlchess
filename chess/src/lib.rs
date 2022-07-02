@@ -16,7 +16,7 @@ mod pawns;
 mod zobrist;
 
 pub use bitboard::Bitboard;
-pub use board::{Board, PrettyStyle, RawBoard};
+pub use board::{Board, RawBoard};
 pub use chain::MoveChain;
 pub use movegen::{MoveList, MovePush};
 pub use moves::{Move, MoveKind, PromoteKind, UciMove};
