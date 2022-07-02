@@ -117,6 +117,12 @@ impl<const N: usize> MovePush for ArrayVec<Move, N> {
     }
 }
 
+impl MovePush for MoveList {
+    fn push(&mut self, m: Move) {
+        self.0.push(m);
+    }
+}
+
 impl MovePush for Vec<Move> {
     fn push(&mut self, m: Move) {
         self.push(m);
@@ -173,13 +179,13 @@ impl<'a, P: MaybeMovePush> MaybeMovePush for LegalFilter<'a, P> {
     }
 }
 
-struct MoveGenImpl<'a, C, P> {
+struct MoveGenImpl<'a, P, C> {
     board: &'a Board,
     dst: &'a mut P,
     _c: PhantomData<C>,
 }
 
-impl<'a, C: generic::Color, P: MaybeMovePush> MoveGenImpl<'a, C, P> {
+impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
     fn new(board: &'a Board, dst: &'a mut P, _c: C) -> Self {
         MoveGenImpl {
             board,
@@ -649,4 +655,115 @@ pub(crate) fn san_pawn_capture_candidates<P: MovePush>(
     };
 }
 
-// TODO tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bitboard::Bitboard;
+    use crate::types::{Color, File, Rank};
+    use crate::Board;
+    use std::collections::BTreeSet;
+
+    #[test]
+    fn test_cell_attackers() {
+        let b = Board::from_fen("3R3B/8/3R4/1NP1Q3/3p4/1NP5/5B2/3R1K1k w - - 0 1").unwrap();
+        assert!(is_cell_attacked(
+            &b,
+            Coord::from_parts(File::D, Rank::R4),
+            Color::White
+        ));
+        let attackers = Bitboard::EMPTY
+            .with(Coord::from_parts(File::D, Rank::R6))
+            .with(Coord::from_parts(File::B, Rank::R5))
+            .with(Coord::from_parts(File::E, Rank::R5))
+            .with(Coord::from_parts(File::B, Rank::R3))
+            .with(Coord::from_parts(File::C, Rank::R3))
+            .with(Coord::from_parts(File::F, Rank::R2))
+            .with(Coord::from_parts(File::D, Rank::R1));
+        assert_eq!(
+            cell_attackers(&b, Coord::from_parts(File::D, Rank::R4), Color::White),
+            attackers
+        );
+        assert!(!is_cell_attacked(
+            &b,
+            Coord::from_parts(File::D, Rank::R4),
+            Color::Black
+        ));
+        assert_eq!(
+            cell_attackers(&b, Coord::from_parts(File::D, Rank::R4), Color::Black),
+            Bitboard::EMPTY
+        );
+
+        let b = Board::from_fen("8/8/8/2KPk3/8/8/8/8 w - - 0 1").unwrap();
+        assert!(is_cell_attacked(
+            &b,
+            Coord::from_parts(File::D, Rank::R5),
+            Color::White
+        ));
+        assert_eq!(
+            cell_attackers(&b, Coord::from_parts(File::D, Rank::R5), Color::White),
+            Bitboard::from_coord(Coord::from_parts(File::C, Rank::R5)),
+        );
+        assert!(is_cell_attacked(
+            &b,
+            Coord::from_parts(File::D, Rank::R5),
+            Color::Black
+        ));
+        assert_eq!(
+            cell_attackers(&b, Coord::from_parts(File::D, Rank::R5), Color::Black),
+            Bitboard::from_coord(Coord::from_parts(File::E, Rank::R5)),
+        );
+    }
+
+    #[test]
+    fn test_san_candidates() {
+        let b = Board::from_fen("3R3B/B7/1B1R4/1N2Q3/RQ1p4/1N6/5B2/3R1K1k w - - 0 1").unwrap();
+        let d4 = Coord::from_parts(File::D, Rank::R4);
+
+        let mut ml = MoveList::new();
+        san_candidates(&b, Piece::Knight, d4, &mut ml);
+        assert_eq!(
+            ml.iter().map(ToString::to_string).collect::<BTreeSet<_>>(),
+            BTreeSet::from(["b3d4".to_string(), "b5d4".to_string()]),
+        );
+
+        let mut ml = MoveList::new();
+        san_candidates(&b, Piece::Bishop, d4, &mut ml);
+        assert_eq!(
+            ml.iter().map(ToString::to_string).collect::<BTreeSet<_>>(),
+            BTreeSet::from(["b6d4".to_string(), "f2d4".to_string()]),
+        );
+
+        let mut ml = MoveList::new();
+        san_candidates(&b, Piece::Rook, d4, &mut ml);
+        assert_eq!(
+            ml.iter().map(ToString::to_string).collect::<BTreeSet<_>>(),
+            BTreeSet::from(["d1d4".to_string(), "d6d4".to_string()]),
+        );
+
+        let mut ml = MoveList::new();
+        san_candidates(&b, Piece::Queen, d4, &mut ml);
+        assert_eq!(
+            ml.iter().map(ToString::to_string).collect::<BTreeSet<_>>(),
+            BTreeSet::from(["b4d4".to_string(), "e5d4".to_string()]),
+        );
+
+        let mut ml = MoveList::new();
+        san_candidates(&b, Piece::King, d4, &mut ml);
+        assert_eq!(
+            ml.iter().map(ToString::to_string).collect::<BTreeSet<_>>(),
+            BTreeSet::new(),
+        );
+
+        let mut ml = MoveList::new();
+        san_candidates(
+            &b,
+            Piece::King,
+            Coord::from_parts(File::E, Rank::R2),
+            &mut ml,
+        );
+        assert_eq!(
+            ml.iter().map(ToString::to_string).collect::<BTreeSet<_>>(),
+            BTreeSet::from(["f1e2".to_string()]),
+        );
+    }
+}
