@@ -766,4 +766,86 @@ mod tests {
             BTreeSet::from(["f1e2".to_string()]),
         );
     }
+
+    #[test]
+    fn test_san_pawn_capture_candidates() {
+        let b = Board::from_fen("7n/6P1/8/2PpP2r/2P1P1P1/7q/6P1/3k1K2 w - d6 0 1").unwrap();
+
+        let mut ml = MoveList::new();
+        san_pawn_capture_candidates(&b, File::C, File::D, None, &mut ml);
+        assert_eq!(
+            ml.iter().map(ToString::to_string).collect::<BTreeSet<_>>(),
+            BTreeSet::from(["c4d5".to_string(), "c5d6".to_string()]),
+        );
+
+        let mut ml = MoveList::new();
+        san_pawn_capture_candidates(&b, File::E, File::D, None, &mut ml);
+        assert_eq!(
+            ml.iter().map(ToString::to_string).collect::<BTreeSet<_>>(),
+            BTreeSet::from(["e4d5".to_string(), "e5d6".to_string()]),
+        );
+
+        let mut ml = MoveList::new();
+        san_pawn_capture_candidates(&b, File::E, File::D, Some(PromoteKind::Knight), &mut ml);
+        assert_eq!(
+            ml.iter().map(ToString::to_string).collect::<BTreeSet<_>>(),
+            BTreeSet::new(),
+        );
+
+        let mut ml = MoveList::new();
+        san_pawn_capture_candidates(&b, File::G, File::H, None, &mut ml);
+        assert_eq!(
+            ml.iter().map(ToString::to_string).collect::<BTreeSet<_>>(),
+            BTreeSet::from(["g2h3".to_string(), "g4h5".to_string()]),
+        );
+
+        let mut ml = MoveList::new();
+        san_pawn_capture_candidates(&b, File::G, File::H, Some(PromoteKind::Knight), &mut ml);
+        assert_eq!(
+            ml.iter().map(ToString::to_string).collect::<BTreeSet<_>>(),
+            BTreeSet::from(["g7h8n".to_string()]),
+        );
+    }
+
+    #[test]
+    fn test_has_legal_moves() {
+        let b = Board::initial();
+        assert!(has_legal_moves(&b));
+
+        let b =
+            Board::from_fen("r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4")
+                .unwrap();
+        assert!(!has_legal_moves(&b));
+
+        let b = Board::from_fen("K7/8/2n5/2n2p1p/5P1P/8/8/5k2 w - - 0 1").unwrap();
+        assert!(!has_legal_moves(&b));
+    }
+
+    #[test]
+    fn test_simple() {
+        let b = Board::initial();
+        assert_eq!(semilegal::gen_all(&b).len(), 20);
+        assert_eq!(semilegal::gen_simple(&b).len(), 20);
+        assert_eq!(semilegal::gen_capture(&b).len(), 0);
+        assert_eq!(legal::gen_all(&b).len(), 20);
+        assert_eq!(legal::gen_simple(&b).len(), 20);
+        assert_eq!(legal::gen_capture(&b).len(), 0);
+
+        let b = Board::from_fen("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3")
+            .unwrap();
+        assert_eq!(semilegal::gen_all(&b).len(), 27);
+        assert_eq!(semilegal::gen_simple(&b).len(), 26);
+        assert_eq!(semilegal::gen_capture(&b).len(), 1);
+        assert_eq!(legal::gen_all(&b).len(), 27);
+        assert_eq!(legal::gen_simple(&b).len(), 26);
+        assert_eq!(legal::gen_capture(&b).len(), 1);
+
+        let b = Board::from_fen("6kb/R7/8/4P3/8/1p6/1K6/2r4r w - - 0 1").unwrap();
+        assert_eq!(semilegal::gen_all(&b).len(), 23);
+        assert_eq!(semilegal::gen_simple(&b).len(), 21);
+        assert_eq!(semilegal::gen_capture(&b).len(), 2);
+        assert_eq!(legal::gen_all(&b).len(), 16);
+        assert_eq!(legal::gen_simple(&b).len(), 15);
+        assert_eq!(legal::gen_capture(&b).len(), 1);
+    }
 }
