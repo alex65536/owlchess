@@ -131,8 +131,8 @@ impl File {
     /// # Example
     ///
     /// ```
-    /// use owlchess_base::types::File;
-    ///
+    /// # use owlchess_base::types::File;
+    /// #
     /// assert_eq!(File::from_char('a'), Some(File::A));
     /// assert_eq!(File::from_char('e'), Some(File::E));
     /// assert_eq!(File::from_char('q'), None);
@@ -151,8 +151,8 @@ impl File {
     /// # Example
     ///
     /// ```
-    /// use owlchess_base::types::File;
-    ///
+    /// # use owlchess_base::types::File;
+    /// #
     /// assert_eq!(File::A.as_char(), 'a');
     /// assert_eq!(File::E.as_char(), 'e');
     /// ```
@@ -241,8 +241,8 @@ impl Rank {
     /// # Example
     ///
     /// ```
-    /// use owlchess_base::types::Rank;
-    ///
+    /// # use owlchess_base::types::Rank;
+    /// #
     /// assert_eq!(Rank::from_char('1'), Some(Rank::R1));
     /// assert_eq!(Rank::from_char('5'), Some(Rank::R5));
     /// assert_eq!(Rank::from_char('9'), None);
@@ -260,8 +260,8 @@ impl Rank {
     /// # Example
     ///
     /// ```
-    /// use owlchess_base::types::Rank;
-    ///
+    /// # use owlchess_base::types::Rank;
+    /// #
     /// assert_eq!(Rank::R1.as_char(), '1');
     /// assert_eq!(Rank::R5.as_char(), '5');
     /// ```
@@ -351,8 +351,8 @@ impl Coord {
     /// # Example
     ///
     /// ```
-    /// use owlchess_base::types::{File, Rank, Coord};
-    ///
+    /// # use owlchess_base::types::{File, Rank, Coord};
+    /// #
     /// let c3 = Coord::from_parts(File::C, Rank::R3);
     /// let c6 = Coord::from_parts(File::C, Rank::R6);
     /// assert_eq!(c3.flipped_rank(), c6);
@@ -368,8 +368,8 @@ impl Coord {
     /// # Example
     ///
     /// ```
-    /// use owlchess_base::types::{File, Rank, Coord};
-    ///
+    /// # use owlchess_base::types::{File, Rank, Coord};
+    /// #
     /// let c3 = Coord::from_parts(File::C, Rank::R3);
     /// let f3 = Coord::from_parts(File::F, Rank::R3);
     /// assert_eq!(c3.flipped_file(), f3);
@@ -427,8 +427,8 @@ impl Coord {
     /// # Example
     ///
     /// ```
-    /// use owlchess_base::types::{File, Rank, Coord};
-    ///
+    /// # use owlchess_base::types::{File, Rank, Coord};
+    /// #
     /// let b3 = Coord::from_parts(File::B, Rank::R3);
     /// let e4 = Coord::from_parts(File::E, Rank::R4);
     /// assert_eq!(b3.shift(-3, 1), None);

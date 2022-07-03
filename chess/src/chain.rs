@@ -1,3 +1,42 @@
+//! Board that remembers previous moves
+//!
+//! Sometimes, using [`Board`](crate::board::Board) is not very convenient. The possible
+//! reasons are as follows:
+//!
+//! - you cannot undo moves in a fast manner. You need to either create a new board after
+//!   each move, or deal with [`RawUndo`](crate::moves::RawUndo) and `unsafe` manually
+//! - you cannot detect draw by repetitions
+//! - you cannot inspect all the previous moves or get the notation of the entire game
+//!
+//! To solve all these problems, there is a [`MoveChain`].
+//!
+//! # Example
+//!
+//! ```
+//! # use owlchess::{Board, MoveChain};
+//! #
+//! // Create an empty chain from the empty position
+//! let mut chain = MoveChain::new_initial();
+//!
+//! // Push d2d4 move
+//! chain.push_uci("d2d4").unwrap();
+//! assert_eq!(
+//!     chain.last().to_string(),
+//!     "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1".to_string(),
+//! );
+//!
+//! // Undo the last move
+//! chain.pop().unwrap();
+//! assert_eq!(chain.last(), &Board::initial());
+//!
+//! // Push other moves
+//! chain.push_uci("e2e4").unwrap();
+//! chain.push_uci("e7e5").unwrap();
+//!
+//! // Get notation as a UCI move sequence
+//! assert_eq!(chain.uci().to_string(), "e2e4 e7e5".to_string());
+//! ```
+
 use crate::board::{self, Board, RawBoard};
 use crate::moves::{self, san, uci, Move, RawUndo, ValidateError};
 use crate::types::{Color, DrawKind, GameStatus, Outcome, OutcomeFilter};
@@ -7,27 +46,44 @@ use std::fmt;
 
 use thiserror::Error;
 
+/// Error while parsing and applying UCI move sequence
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 #[error("cannot parse UCI move #{}: {}", .pos + 1, .source)]
 pub struct UciParseError {
+    /// The number of moves successfully applied before the error occurred
     pub pos: usize,
+    /// The error happened when trying to apply the move
     pub source: moves::uci::ParseError,
 }
 
+/// Repetition table trait
+///
+/// It allows to customize [`MoveChain`] and to implement something better than
+/// the built-in [`HashRepeat`] to detect draws by repetitions.
+///
+/// Technically, a repetition table is just a multiset that stored all the positions
+/// occurred during the game.
 pub trait Repeat: Default {
+    /// Adds a board `b` to the set
+    ///
+    /// Note that this is a multiset, so there can be multiple instances of the same
+    /// board in it.
     fn push(&mut self, b: &Board);
+
+    /// Removes a board `b` from the set
+    ///
+    /// # Panics
+    ///
+    /// The function must panic if there is no such board `b`.
     fn pop(&mut self, b: &Board);
-    fn repeat_count(&self, b: &Board) -> usize;
+
+    /// Returns the number of times board `b` is present in the set.
+    fn count(&self, b: &Board) -> usize;
 }
 
+/// Simple repetition table based on [`HashMap`]
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 pub struct HashRepeat(HashMap<u64, usize>);
-
-impl HashRepeat {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
 
 impl Repeat for HashRepeat {
     fn push(&mut self, b: &Board) {
@@ -46,13 +102,20 @@ impl Repeat for HashRepeat {
         }
     }
 
-    fn repeat_count(&self, b: &Board) -> usize {
+    fn count(&self, b: &Board) -> usize {
         *self.0.get(&b.zobrist_hash()).unwrap_or(&0)
     }
 }
 
+/// Convenience instantiation of [`BaseMoveChain`] with default repetition table
 pub type MoveChain = BaseMoveChain<HashRepeat>;
 
+/// Board that remembers previous moves
+///
+/// See the [module docs](crate::chain) for more details.
+///
+/// This version allows customizing its repetition table. Use [`MoveChain`] if you don't
+/// need this.
 #[derive(Debug, Clone)]
 pub struct BaseMoveChain<R: Repeat> {
     start: RawBoard,
@@ -63,6 +126,7 @@ pub struct BaseMoveChain<R: Repeat> {
 }
 
 impl<R: Repeat> BaseMoveChain<R> {
+    /// Creates an empty move chain, starting with position `b`
     pub fn new(b: Board) -> Self {
         let mut res = BaseMoveChain {
             start: b.r,
@@ -75,81 +139,125 @@ impl<R: Repeat> BaseMoveChain<R> {
         res
     }
 
+    /// Creates an empty move chain, starting with initial position
+    #[inline]
     pub fn new_initial() -> Self {
         Self::new(Board::initial())
     }
 
+    /// Creates a move chain starting from position `b` with UCI moves from the
+    /// space-separated list `uci_list` applied
+    #[inline]
     pub fn from_uci_list(b: Board, uci_list: &str) -> Result<Self, UciParseError> {
         let mut res = BaseMoveChain::new(b);
         res.push_uci_list(uci_list)?;
         Ok(res)
     }
 
-    pub fn from_fen(s: &str) -> Result<Self, board::FenParseError> {
-        Ok(Self::new(Board::from_fen(s)?))
+    /// Creates an empty move chain, starting from position with FEN string `fen`
+    #[inline]
+    pub fn from_fen(fen: &str) -> Result<Self, board::FenParseError> {
+        Ok(Self::new(Board::from_fen(fen)?))
     }
 
+    /// Returns the position from which this chain starts
     #[inline]
     pub fn startpos(&self) -> &RawBoard {
         &self.start
     }
 
+    /// Returns the current position
     #[inline]
     pub fn last(&self) -> &Board {
         &self.board
     }
 
+    /// Returns the number of applied moves
     #[inline]
     pub fn len(&self) -> usize {
         self.stack.len()
     }
 
+    /// Returns `true` if there is no applied moves
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.stack.is_empty()
     }
 
+    /// Iterates over all the applied moves, from first to last
+    ///
+    /// If you need previous positions alongside with the moves, you need to use
+    /// [`BaseMoveChain::walk()`] instead.
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = Move> + '_ {
         self.stack.iter().map(|(m, _)| *m)
     }
 
+    /// Returns the `idx`th applied move
+    ///
+    /// # Panics
+    ///
+    /// The function panics if `idx` is out of range.
     #[inline]
     pub fn get(&self, idx: usize) -> Move {
         self.stack[idx].0
     }
 
+    /// Returns the `idx`th applied move
+    ///
+    /// # Safety
+    ///
+    /// The behavior is undefined if `idx` is out of range.
     #[inline]
     pub unsafe fn get_unchecked(&self, idx: usize) -> Move {
         self.stack.get_unchecked(idx).0
     }
 
+    /// Returns the game outcome stored in the chain
     #[inline]
     pub fn outcome(&self) -> &Option<Outcome> {
         &self.outcome
     }
 
+    /// Returns `true` if there is a game outcome stored
     #[inline]
     pub fn is_finished(&self) -> bool {
         self.outcome.is_some()
     }
 
+    /// Removes the stored game outcome
     #[inline]
     pub fn clear_outcome(&mut self) {
         self.outcome = None;
     }
 
+    /// Sets the game outcome to `outcome`
+    ///
+    /// # Panics
+    ///
+    /// The function panics is the outcome was already set.
     #[inline]
     pub fn set_outcome(&mut self, outcome: Outcome) {
         assert!(!self.is_finished());
         self.outcome = Some(outcome);
     }
 
+    /// Resets the outcome to `outcome`
+    ///
+    /// If the outcome was already set, then it is just replaced by `outcome`
     #[inline]
     pub fn reset_outcome(&mut self, outcome: Option<Outcome>) {
         self.outcome = outcome;
     }
 
+    /// Calculates the current outcome of the game
+    ///
+    /// This function ignores the value stored in [`BaseMoveChain::outcome()`] and uses
+    /// just current position and repetition table for calculations.
+    ///
+    /// Unlike [`Board::calc_outcome()`], it is able to detect draw by repetitions.
+    ///
+    /// For the priority of different outcomes, see the docs for [`Board::calc_outcome()`]
     pub fn calc_outcome(&self) -> Option<Outcome> {
         // We need to handle the priority of different outcomes carefully.
         //
@@ -175,7 +283,7 @@ impl<R: Repeat> BaseMoveChain<R> {
             }
         }
 
-        let rep = self.repeat.repeat_count(&self.board);
+        let rep = self.repeat.count(&self.board);
         if rep >= 5 {
             return Some(Outcome::Draw(DrawKind::Repeat5));
         }
@@ -186,6 +294,12 @@ impl<R: Repeat> BaseMoveChain<R> {
         outcome
     }
 
+    /// Calculates the game outcome using [`BaseMoveChain::calc_outcome()`] and sets the calculated
+    /// outcome if it passes the filter `filter`
+    ///
+    /// # Panics
+    ///
+    /// The function panics is the outcome was already set.
     pub fn set_auto_outcome(&mut self, filter: OutcomeFilter) -> Option<Outcome> {
         assert!(!self.is_finished());
         if let Some(outcome) = self.calc_outcome() {
@@ -196,28 +310,53 @@ impl<R: Repeat> BaseMoveChain<R> {
         self.outcome
     }
 
+    #[inline]
     fn do_finish_push(&mut self, mv: Move, u: RawUndo) {
         self.repeat.push(&self.board);
         self.stack.push((mv, u));
     }
 
+    /// Pushes a move `mv` to the chain
+    ///
+    /// # Safety
+    ///
+    /// The move must be either legal or null. Also, the opponent's king must not be under
+    /// attack after applying this move. Otherwise, the behavior is undefined.
+    #[inline]
     pub unsafe fn push_unchecked(&mut self, mv: Move) {
         let u = moves::make_move_unchecked(&mut self.board, mv);
         self.do_finish_push(mv, u);
     }
 
+    /// Tries to push a semilegal move `mv` to the chain
+    ///
+    /// If the opponent's king is under attack after pushing `mv`, then the chain remains
+    /// unchanged and the error is returned.
+    ///
+    /// # Safety
+    ///
+    /// The move must be either semilegal or null. Otherwise, the behavior is undefined.
     pub unsafe fn try_push_unchecked(&mut self, mv: Move) -> Result<(), ValidateError> {
         let u = moves::try_make_move_unchecked(&mut self.board, mv)?;
         self.do_finish_push(mv, u);
         Ok(())
     }
 
+    /// Pushes a move to the chain
+    ///
+    /// If the move if not legal, then it is not pushed, and the error is returned.
+    #[inline]
     pub fn push(&mut self, mv: Move) -> Result<(), ValidateError> {
         assert!(!self.is_finished());
         mv.semi_validate(&self.board)?;
         unsafe { self.try_push_unchecked(mv) }
     }
 
+    /// Pushed a move repesented as a UCI string `s` to the chain
+    ///
+    /// If `s` doesn't represent a legal move, then nothing is pushed, and the error
+    /// is returned.
+    #[inline]
     pub fn push_uci(&mut self, s: &str) -> Result<(), uci::ParseError> {
         let mv = Move::from_uci_semilegal(s, &self.board)?;
         unsafe {
@@ -227,6 +366,12 @@ impl<R: Repeat> BaseMoveChain<R> {
         Ok(())
     }
 
+    /// Pushed a move repesented as a SAN (Standard Algebraic Notation) string `s` to
+    /// the chain
+    ///
+    /// If `s` doesn't represent a legal move, then nothing is pushed, and the error
+    /// is returned.
+    #[inline]
     pub fn push_san(&mut self, s: &str) -> Result<(), san::ParseError> {
         let mv = Move::from_san(s, &self.board)?;
         unsafe {
@@ -235,6 +380,14 @@ impl<R: Repeat> BaseMoveChain<R> {
         Ok(())
     }
 
+    /// Pushes a space-separated list of moves `uci_list` to the chain
+    ///
+    /// The string is first split into tokens. Then, the function tries to apply each token as
+    /// a UCI move. It stops when either all the moves were applied or an error occurred. So,
+    /// in case of errors only a prefix of `uci_list` is pushed.
+    ///
+    /// To determine how much moves were pushed in case of error, you need to inspect
+    /// [`UciParseError`].
     pub fn push_uci_list(&mut self, uci_list: &str) -> Result<(), UciParseError> {
         for (pos, token) in uci_list.split_ascii_whitespace().enumerate() {
             self.push_uci(token)
@@ -243,6 +396,10 @@ impl<R: Repeat> BaseMoveChain<R> {
         Ok(())
     }
 
+    /// Removes the last pushed move from the chain and returns the removed move
+    ///
+    /// If the chain doesn't contain any moves, it remains unchanged and `None` is
+    /// returned.
     pub fn pop(&mut self) -> Option<Move> {
         let (m, u) = self.stack.pop()?;
         self.repeat.pop(&self.board);
@@ -251,11 +408,31 @@ impl<R: Repeat> BaseMoveChain<R> {
         Some(m)
     }
 
+    /// Returns the wrapper which helps to format the move chain as a space-separated
+    /// UCI move list
+    ///
+    /// The resulting wrapper implements [`fmt::Display`], so can be used with
+    /// `write!()`, `println!()`, or `ToString::to_string`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use owlchess::{board::Board, chain::MoveChain};
+    /// #
+    /// let chain = MoveChain::from_uci_list(Board::initial(), "e2e4 e7e5 g1f3").unwrap();
+    /// assert_eq!(format!("Your UCI chain is {}", chain.uci()), "Your UCI chain is e2e4 e7e5 g1f3");
+    /// ```
     #[inline]
     pub fn uci(&self) -> UciList<'_, R> {
         UciList(self)
     }
 
+    /// Creates a [`Walker`] over the current move chain
+    ///
+    /// [`Walker`] looks similar to iterator, but is bidirectional and can iterate over moves
+    /// alongside with positions preceding these moves.
+    ///
+    /// The returned walker is initially at the beginning of the move chain.
     #[inline]
     pub fn walk(&self) -> Walker<'_> {
         Walker {
@@ -266,6 +443,39 @@ impl<R: Repeat> BaseMoveChain<R> {
         }
     }
 
+    /// Returns the wrapper which helps to format the move chain as a styled move list
+    ///
+    /// The resulting wrapper implements [`fmt::Display`], so can be used with
+    /// `write!()`, `println!()`, or `ToString::to_string`.
+    ///
+    /// The formatting is customizable. `nums` indicate whether and how move numbers must
+    /// be formatted, `style` indicates the move formatting style, and `status` indicates
+    /// whether game status must be placed in the end of the list.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use owlchess::{
+    /// #     board::Board,
+    /// #     chain::{MoveChain, NumberPolicy, GameStatusPolicy},
+    /// #     moves::Style,
+    /// #     types::OutcomeFilter,
+    /// # };
+    /// #
+    /// let mut chain = MoveChain::from_uci_list(
+    ///     Board::initial(),
+    ///     "e2e4 e7e5 f1c4 b8c6 d1h5 g8f6 h5f7",
+    /// ).unwrap();
+    /// chain.set_auto_outcome(OutcomeFilter::Strict).unwrap();
+    ///
+    /// let formatted = chain.styled(
+    ///     NumberPolicy::FromBoard,
+    ///     Style::San,
+    ///     GameStatusPolicy::Show
+    /// ).to_string();
+    ///
+    /// assert_eq!(formatted, "1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0".to_string());
+    /// ```
     #[inline]
     pub fn styled(
         &self,
@@ -300,6 +510,9 @@ impl<R: Repeat + Eq> PartialEq<Self> for BaseMoveChain<R> {
 
 impl<R: Repeat + Eq> Eq for BaseMoveChain<R> {}
 
+/// Wrapper that helps to format [`BaseMoveChain`] as a UCI move list
+///
+/// See [`BaseMoveChain::uci()`] for more details.
 pub struct UciList<'a, R: Repeat>(&'a BaseMoveChain<R>);
 
 impl<'a, R: Repeat> fmt::Display for UciList<'a, R> {
@@ -314,6 +527,41 @@ impl<'a, R: Repeat> fmt::Display for UciList<'a, R> {
     }
 }
 
+/// Walks over the move chain, iterating over moves with their preceding positions
+///
+/// Walker works similar to bidirectional iterator, but doesn't implement [`Iterator`]
+/// in fact. The reason is that [`Walker::next()`] returns returns reference to [`Board`]
+/// which can live only before the iterator is changed. But the [`Iterator`] trait requires
+/// that the references to items returned by `next()` must live at least as long as the
+/// iterator itself.
+///
+/// Walker can be considered a stack, where [`next()`][Walker::next] pushes the next move
+/// from the move chain, and [`prev()`][Walker::prev()] pops the last pushed move.
+///
+/// To create a walker, one needs to use [`BaseMoveChain::walk()`].
+///
+/// # Example
+///
+/// ```
+/// # use owlchess::{Board, MoveChain, chain::Walker};
+/// #
+/// let chain = MoveChain::from_uci_list(Board::initial(), "e2e4 e7e5 g1f3").unwrap();
+/// let mut walker = chain.walk();
+///
+/// // Push two moves into Walker
+/// assert_eq!(walker.next().unwrap().1.to_string(), "e2e4".to_string());
+/// assert_eq!(walker.next().unwrap().1.to_string(), "e7e5".to_string());
+///
+/// // Then, pop one of them (i.e. "e7e5")
+/// assert_eq!(walker.prev().unwrap().1.to_string(), "e7e5".to_string());
+///
+/// // Push the rest of the moves
+/// assert_eq!(walker.next().unwrap().1.to_string(), "e7e5".to_string());
+/// assert_eq!(walker.next().unwrap().1.to_string(), "g1f3".to_string());
+///
+/// // We are at the end
+/// assert_eq!(walker.next(), None);
+/// ```
 pub struct Walker<'a> {
     board: Board,
     stack: &'a [(Move, RawUndo)],
@@ -322,16 +570,22 @@ pub struct Walker<'a> {
 }
 
 impl<'a> Walker<'a> {
+    /// Returns the number of moves in the underlying move chain
     #[inline]
     pub fn len(&self) -> usize {
         self.stack.len()
     }
 
+    /// Returns `true` if the underlying move chain has no moves
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.stack.is_empty()
     }
 
+    /// Returns the number of moves pushed into the walker
+    ///
+    /// This is equal to the move index that will be fetched by the next call of
+    /// [`Walker::next()`].
     #[inline]
     pub fn pos(&self) -> usize {
         self.pos
@@ -354,7 +608,18 @@ impl<'a> Walker<'a> {
         }
     }
 
-    pub fn walk_next(&mut self) -> Option<(&Board, Move)> {
+    /// Tries to push the next move from chain into the walker
+    ///
+    /// If there are no moves to push (i. e. the walker is at the end of
+    /// the chain), then `None` is returned.
+    ///
+    /// Otherwise, the pushed move is returned, alongside with the position
+    /// immediately preceding this move.
+    ///
+    /// Note that the reference to [`Board`] is only active until the walker
+    /// is mutated.
+    #[allow(clippy::should_implement_trait)] // cannot implement Iterator
+    pub fn next(&mut self) -> Option<(&Board, Move)> {
         if self.pos == self.stack.len() {
             return None;
         }
@@ -363,7 +628,17 @@ impl<'a> Walker<'a> {
         Some((&self.board, self.stack[self.pos - 1].0))
     }
 
-    pub fn walk_prev(&mut self) -> Option<(&Board, Move)> {
+    /// Tries to pop the last move from the walker
+    ///
+    /// If there are no moves to pop (i. e. the walker is at the beginning
+    /// of the chain), then `None` is returned.
+    ///
+    /// Otherwise, the popped move is returned, alongside with the position
+    /// immediately preceding this move.
+    ///
+    /// Note that the reference to [`Board`] is only active until the walker
+    /// is mutated.
+    pub fn prev(&mut self) -> Option<(&Board, Move)> {
         if self.pos == 0 {
             return None;
         }
@@ -372,30 +647,47 @@ impl<'a> Walker<'a> {
         Some((&self.board, self.stack[self.pos].0))
     }
 
+    /// Pops all the moves from the walker
+    ///
+    /// In other words, the walker moves to the start of the chain.
     #[inline]
-    pub fn walk_start(&mut self) {
+    pub fn start(&mut self) {
         self.pos = 0;
     }
 
+    /// Pushes all the moves to the walker
+    ///
+    /// In other words, the walker moves to the end of the chain.
     #[inline]
-    pub fn walk_end(&mut self) {
+    pub fn end(&mut self) {
         self.pos = self.stack.len();
     }
 }
 
+/// Indicates whether to show move numbers in [`BaseMoveChain::styled()`]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum NumberPolicy {
+    /// Do not show move numbers
     Omit,
+    /// Show move numbers according to the number specified in the board
     FromBoard,
+    /// Show move numbers, but start from the given number instead of the one
+    /// specified in the board
     Custom(usize),
 }
 
+/// Indicates whether to show game status in [`BaseMoveChain::styled()`]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum GameStatusPolicy {
+    /// Show game status
     Show,
+    /// Hide game status
     Hide,
 }
 
+/// Wrapper which helps to format the move chain as a styled move list
+///
+/// See [`BaseMoveChain::styled()`] doc for more details.
 pub struct StyledList<'a, R: Repeat> {
     inner: &'a BaseMoveChain<R>,
     nums: NumberPolicy,
@@ -414,7 +706,7 @@ impl<'a, R: Repeat> fmt::Display for StyledList<'a, R> {
         }
 
         let mut walker = self.inner.walk();
-        let (b, mv) = walker.walk_next().unwrap();
+        let (b, mv) = walker.next().unwrap();
         let real_start_num = b.raw().move_number as usize;
         let start_num = match self.nums {
             NumberPolicy::Omit => None,
@@ -430,7 +722,7 @@ impl<'a, R: Repeat> fmt::Display for StyledList<'a, R> {
         }
         write!(f, "{}", mv.styled(b, self.style).unwrap())?;
 
-        while let Some((b, mv)) = walker.walk_next() {
+        while let Some((b, mv)) = walker.next() {
             if let Some(num) = start_num {
                 if b.side() == Color::White {
                     write!(
@@ -602,22 +894,22 @@ mod tests {
         assert_eq!(w.len(), 13);
 
         assert_eq!(w.pos(), 0);
-        assert_eq!(w.walk_prev(), None);
+        assert_eq!(w.prev(), None);
         assert_eq!(w.pos(), 0);
 
-        w.walk_start();
+        w.start();
         assert_eq!(w.pos(), 0);
-        assert_eq!(w.walk_prev(), None);
+        assert_eq!(w.prev(), None);
         assert_eq!(w.pos(), 0);
 
-        w.walk_end();
+        w.end();
         assert_eq!(w.pos(), 13);
-        assert_eq!(w.walk_next(), None);
+        assert_eq!(w.next(), None);
         assert_eq!(w.pos(), 13);
 
-        w.walk_prev().unwrap();
-        w.walk_prev().unwrap();
-        let (b, mv) = w.walk_prev().unwrap();
+        w.prev().unwrap();
+        w.prev().unwrap();
+        let (b, mv) = w.prev().unwrap();
         assert_eq!(
             b.as_fen(),
             "rn1qkbnr/ppp2p1p/3p2p1/4N3/2B1P3/2N5/PPPP1PPP/R1BbK2R w KQkq - 0 6"
@@ -625,7 +917,7 @@ mod tests {
         assert_eq!(mv.san(b).unwrap().to_string(), "Bxf7+");
         assert_eq!(w.pos(), 10);
 
-        let (b, mv) = w.walk_next().unwrap();
+        let (b, mv) = w.next().unwrap();
         assert_eq!(
             b.as_fen(),
             "rn1qkbnr/ppp2p1p/3p2p1/4N3/2B1P3/2N5/PPPP1PPP/R1BbK2R w KQkq - 0 6"
@@ -633,7 +925,7 @@ mod tests {
         assert_eq!(mv.san(b).unwrap().to_string(), "Bxf7+");
         assert_eq!(w.pos(), 11);
 
-        let (b, mv) = w.walk_next().unwrap();
+        let (b, mv) = w.next().unwrap();
         assert_eq!(
             b.as_fen(),
             "rn1qkbnr/ppp2B1p/3p2p1/4N3/4P3/2N5/PPPP1PPP/R1BbK2R b KQkq - 0 6"

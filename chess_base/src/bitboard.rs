@@ -93,8 +93,8 @@ impl Bitboard {
     /// # Example
     ///
     /// ```
-    /// use owlchess_base::bitboard::Bitboard;
-    ///
+    /// # use owlchess_base::bitboard::Bitboard;
+    /// #
     /// let b = Bitboard::from(0b11011001);
     /// let x = 0b10110;
     /// // Suppose that the bits are numbered from 0 in order from lower to higher.
@@ -224,8 +224,8 @@ impl fmt::Display for Bitboard {
 /// # Example
 ///
 /// ```
-/// use owlchess_base::{bitboard::Bitboard, types::Coord};
-///
+/// # use owlchess_base::{bitboard::Bitboard, types::Coord};
+/// #
 /// let b = Bitboard::from(0b1100_1011);
 /// let mut iter = b.into_iter();
 /// assert_eq!(iter.next(), Some(Coord::from_index(0)));

@@ -125,8 +125,8 @@ pub enum FenParseError {
 /// # Example
 ///
 /// ```
-/// use owlchess::{RawBoard, Board, File, Rank, Color, Piece, Cell, CastlingRights};
-///
+/// # use owlchess::{RawBoard, Board, File, Rank, Color, Piece, Cell, CastlingRights};
+/// #
 /// let mut raw = RawBoard {
 ///     cells: [Default::default(); 64],
 ///     side: Color::White,
@@ -278,8 +278,8 @@ impl RawBoard {
     /// # Example
     ///
     /// ```
-    /// use owlchess::{RawBoard, board::PrettyStyle};
-    ///
+    /// # use owlchess::{RawBoard, board::PrettyStyle};
+    /// #
     /// let r = RawBoard::initial();
     ///
     /// let res = r#"
