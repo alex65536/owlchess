@@ -19,7 +19,7 @@ pub use bitboard::Bitboard;
 pub use board::{Board, RawBoard};
 pub use chain::MoveChain;
 pub use movegen::{MoveList, MovePush};
-pub use moves::{Move, MoveKind, PromoteKind, UciMove};
+pub use moves::{Move, MoveKind, PromoteKind};
 pub use types::{
     CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, Outcome, Piece, Rank, WinKind,
 };
