@@ -164,7 +164,7 @@ impl<R: Repeat> BaseMoveChain<R> {
     pub fn set_auto_outcome(&mut self, filter: OutcomeFilter) -> Option<Outcome> {
         assert!(!self.is_finished());
         if let Some(outcome) = self.calc_outcome() {
-            if outcome.is_auto(filter) {
+            if outcome.passes(filter) {
                 self.set_outcome(outcome);
             }
         }

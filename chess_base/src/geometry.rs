@@ -1,5 +1,8 @@
+//! Named ranks and offsets on the chess board
+
 use crate::types::{Color, Rank};
 
+/// Rank on which the pieces of color `c` stand while performing castling
 #[inline]
 pub const fn castling_rank(c: Color) -> Rank {
     match c {
@@ -8,6 +11,7 @@ pub const fn castling_rank(c: Color) -> Rank {
     }
 }
 
+/// Source rank for pawns of color `c` to perform a double move
 #[inline]
 pub const fn double_move_src_rank(c: Color) -> Rank {
     match c {
@@ -16,6 +20,7 @@ pub const fn double_move_src_rank(c: Color) -> Rank {
     }
 }
 
+/// Destination rank for pawns of color `c` to perform a double move
 #[inline]
 pub const fn double_move_dst_rank(c: Color) -> Rank {
     match c {
@@ -24,6 +29,7 @@ pub const fn double_move_dst_rank(c: Color) -> Rank {
     }
 }
 
+/// Source rank for pawns of color `c` to perform a promote
 #[inline]
 pub const fn promote_src_rank(c: Color) -> Rank {
     match c {
@@ -32,6 +38,7 @@ pub const fn promote_src_rank(c: Color) -> Rank {
     }
 }
 
+/// Destination rank for pawns of color `c` to perform a promote
 #[inline]
 pub const fn promote_dst_rank(c: Color) -> Rank {
     match c {
@@ -40,6 +47,9 @@ pub const fn promote_dst_rank(c: Color) -> Rank {
     }
 }
 
+/// Source rank for pawns of color `c` to perform an enpassant
+///
+/// Also the rank on which the opponent's pawn captured by enpassant is located.
 #[inline]
 pub const fn enpassant_src_rank(c: Color) -> Rank {
     match c {
@@ -48,6 +58,7 @@ pub const fn enpassant_src_rank(c: Color) -> Rank {
     }
 }
 
+/// Destination rank for pawns of color `c` to perform an enpassant
 #[inline]
 pub const fn enpassant_dst_rank(c: Color) -> Rank {
     match c {
@@ -56,6 +67,7 @@ pub const fn enpassant_dst_rank(c: Color) -> Rank {
     }
 }
 
+/// Offset for pawn of color `c` when it performs a simple move
 #[inline]
 pub const fn pawn_forward_delta(c: Color) -> isize {
     match c {
@@ -64,6 +76,7 @@ pub const fn pawn_forward_delta(c: Color) -> isize {
     }
 }
 
+/// Offset for pawn of color `c` when it performs a left capture
 #[inline]
 pub const fn pawn_left_delta(c: Color) -> isize {
     match c {
@@ -72,6 +85,7 @@ pub const fn pawn_left_delta(c: Color) -> isize {
     }
 }
 
+/// Offset for pawn of color `c` when it performs a right capture
 #[inline]
 pub const fn pawn_right_delta(c: Color) -> isize {
     match c {

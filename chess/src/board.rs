@@ -196,7 +196,7 @@ pub struct Board {
     pub(crate) white: Bitboard,
     pub(crate) black: Bitboard,
     pub(crate) all: Bitboard,
-    pub(crate) pieces: [Bitboard; Cell::MAX_INDEX],
+    pub(crate) pieces: [Bitboard; Cell::COUNT],
 }
 
 impl Board {
@@ -332,18 +332,21 @@ impl Board {
 
     #[inline]
     pub fn calc_outcome(&self) -> Option<Outcome> {
-        if let Some(draw) = self.is_draw_simple() {
-            return Some(Outcome::Draw(draw));
-        }
+        // First, we verify for checkmate or stalemate, because checkmate takes precedence over
+        // 50-move rule and 75-move rule.
         if !self.has_legal_moves() {
-            if self.is_check() {
+            return if self.is_check() {
                 Some(Outcome::win(self.r.side.inv(), WinKind::Checkmate))
             } else {
                 Some(Outcome::Draw(DrawKind::Stalemate))
             }
-        } else {
-            None
         }
+
+        if let Some(draw) = self.is_draw_simple() {
+            return Some(Outcome::Draw(draw));
+        }
+
+        None
     }
 
     pub fn is_draw_simple(&self) -> Option<DrawKind> {
@@ -411,7 +414,7 @@ impl TryFrom<RawBoard> for Board {
         // Calculate bitboards
         let mut white = Bitboard::EMPTY;
         let mut black = Bitboard::EMPTY;
-        let mut pieces = [Bitboard::EMPTY; Cell::MAX_INDEX];
+        let mut pieces = [Bitboard::EMPTY; Cell::COUNT];
         for (idx, cell) in raw.cells.iter().enumerate() {
             let coord = Coord::from_index(idx);
             if let Some(color) = cell.color() {

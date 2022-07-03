@@ -3,10 +3,12 @@
 use crate::bitboard::Bitboard;
 use crate::types::{File, Rank};
 
-/// Bitboards containing all the squares on a given left-down diagonal
+/// Bitboards containing all the squares on a given diagonal
 ///
-/// The diagonals are numbered in the same way as in [`Coord::diag1()`](crate::types::Coord::diag1).
-pub const DIAG1: [Bitboard; 15] = [
+/// Note that diagonals go down-left.
+///
+/// The diagonals are numbered in the same way as in [`Coord::diag()`](crate::types::Coord::diag).
+pub const DIAG: [Bitboard; 15] = [
     Bitboard::from_raw(0x0000000000000001),
     Bitboard::from_raw(0x0000000000000102),
     Bitboard::from_raw(0x0000000000010204),
@@ -24,10 +26,12 @@ pub const DIAG1: [Bitboard; 15] = [
     Bitboard::from_raw(0x8000000000000000),
 ];
 
-/// Bitboards containing all the squares on a given right-down diagonal
+/// Bitboards containing all the squares on a given antidiagonal
 ///
-/// The diagonals are numbered in the same way as in [`Coord::diag2()`](crate::types::Coord::diag2).
-pub const DIAG2: [Bitboard; 15] = [
+/// Note that antidiagonals go down-right.
+///
+/// The antidiagonals are numbered in the same way as in [`Coord::antidiag()`](crate::types::Coord::antidiag).
+pub const ANTIDIAG: [Bitboard; 15] = [
     Bitboard::from_raw(0x0100000000000000),
     Bitboard::from_raw(0x0201000000000000),
     Bitboard::from_raw(0x0402010000000000),

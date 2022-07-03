@@ -129,7 +129,7 @@ impl Bitboard {
     /// If the provided square is already present, the bitboard is unchanged.
     ///
     /// This function does the same as [`with()`](Bitboard::with), but mutates the bitboard instead
-    /// of returning the new one.
+    /// of returning a new one.
     #[inline]
     pub fn set(&mut self, coord: Coord) {
         *self = self.with(coord);
@@ -140,7 +140,7 @@ impl Bitboard {
     /// If the provided bitboard doesn't have square `coord`, it is unchanged.
     ///
     /// This function does the same as [`without()`](Bitboard::without), but mutates the bitboard instead
-    /// of returning the new one.
+    /// of returning a new one.
     #[inline]
     pub fn unset(&mut self, coord: Coord) {
         *self = self.without(coord);

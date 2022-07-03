@@ -17,7 +17,7 @@ mod zobrist {
     use rand_core::RngCore;
 
     struct Zobrist {
-        pieces: [[u64; 64]; Cell::MAX_INDEX],
+        pieces: [[u64; 64]; Cell::COUNT],
         move_side: u64,
         castling: [u64; 16],
         enpassant: [u64; 64],
@@ -28,7 +28,7 @@ mod zobrist {
     impl Zobrist {
         fn generate<R: RngCore>(gen: &mut R) -> Zobrist {
             let pieces = {
-                let mut res = [[0_u64; 64]; Cell::MAX_INDEX];
+                let mut res = [[0_u64; 64]; Cell::COUNT];
                 for sub in res.iter_mut().skip(1) {
                     for x in sub {
                         *x = gen.next_u64();
@@ -79,7 +79,7 @@ mod zobrist {
         }
 
         fn output<W: Write>(&self, w: &mut W) -> io::Result<()> {
-            writeln!(w, "const PIECES: [[u64; 64]; Cell::MAX_INDEX] = [")?;
+            writeln!(w, "const PIECES: [[u64; 64]; Cell::COUNT] = [")?;
             for (i, sub) in self.pieces.iter().enumerate() {
                 writeln!(w, "    /*{:2}*/ [", i)?;
                 for (i, hsh) in sub.iter().enumerate() {
@@ -136,7 +136,7 @@ mod near_attacks {
         for c in Coord::iter() {
             let mut bb = Bitboard::EMPTY;
             for (&delta_file, &delta_rank) in d_file.iter().zip(d_rank.iter()) {
-                if let Some(nc) = c.try_shift(delta_file, delta_rank) {
+                if let Some(nc) = c.shift(delta_file, delta_rank) {
                     bb.set(nc);
                 }
             }
@@ -266,11 +266,11 @@ mod magic {
         const SHIFTS: &'static [(isize, isize)] = &[(-1, 1), (-1, -1), (1, -1), (1, 1)];
 
         fn build_mask(c: Coord) -> Bitboard {
-            (bitboard_consts::DIAG1[c.diag1()] ^ bitboard_consts::DIAG2[c.diag2()]) & !DIAG_FRAME
+            (bitboard_consts::DIAG[c.diag()] ^ bitboard_consts::ANTIDIAG[c.antidiag()]) & !DIAG_FRAME
         }
 
         fn build_post_mask(c: Coord) -> Bitboard {
-            bitboard_consts::DIAG1[c.diag1()] ^ bitboard_consts::DIAG2[c.diag2()]
+            bitboard_consts::DIAG[c.diag()] ^ bitboard_consts::ANTIDIAG[c.antidiag()]
         }
 
         fn init_offsets() -> Offsets {
@@ -388,7 +388,7 @@ mod magic {
                     let res = &mut lookups[idx + off.ranges[c.index()].0];
                     for &(delta_file, delta_rank) in M::SHIFTS {
                         let mut p = c;
-                        while let Some(new_p) = p.try_shift(delta_file, delta_rank) {
+                        while let Some(new_p) = p.shift(delta_file, delta_rank) {
                             res.set(new_p);
                             if occupied.has(new_p) {
                                 break;
