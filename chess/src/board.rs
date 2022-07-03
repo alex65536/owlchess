@@ -758,7 +758,7 @@ fn format_cells(cells: &[Cell; 64], f: &mut fmt::Formatter<'_>) -> Result<(), fm
         let mut empty = 0;
         for file in File::iter() {
             let cell = cells[Coord::from_parts(file, rank).index()];
-            if cell.is_empty() {
+            if cell.is_free() {
                 empty += 1;
                 continue;
             }

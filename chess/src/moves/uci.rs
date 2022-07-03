@@ -61,7 +61,7 @@ impl Move {
                         {
                             return MoveKind::PawnDouble;
                         }
-                        if src.file() != dst.file() && b.get(dst).is_empty() {
+                        if src.file() != dst.file() && b.get(dst).is_free() {
                             return MoveKind::Enpassant;
                         }
                         return MoveKind::PawnSimple;

@@ -579,7 +579,7 @@ impl Cell {
 
     /// Returns `true` if the cell doesn't contain any pieces
     #[inline]
-    pub const fn is_empty(&self) -> bool {
+    pub const fn is_free(&self) -> bool {
         self.0 == 0
     }
 

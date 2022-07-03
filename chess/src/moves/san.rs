@@ -345,7 +345,7 @@ impl Data {
                         kind = MoveKind::Enpassant;
                     }
                 }
-                if kind != MoveKind::Enpassant && b.get(dst).is_empty() {
+                if kind != MoveKind::Enpassant && b.get(dst).is_free() {
                     return Err(IntoMoveError::CaptureExpected);
                 }
                 let src =
@@ -371,7 +371,7 @@ impl Data {
                 is_capture,
                 dst,
             } => {
-                if is_capture && b.get(dst).is_empty() {
+                if is_capture && b.get(dst).is_free() {
                     return Err(IntoMoveError::CaptureExpected);
                 }
                 let mut detector = AmbigSearcher::new(file, rank);
