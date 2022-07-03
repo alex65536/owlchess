@@ -1,4 +1,4 @@
-//! Chessboard and related things
+//! Board and related things
 
 use crate::bitboard::Bitboard;
 use crate::moves::{self, Move};
@@ -14,7 +14,7 @@ use std::str::FromStr;
 
 use thiserror::Error;
 
-/// Chessboard validation error
+/// Board validation error
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum ValidateError {
     /// Invalid enpassant coordinate specified (i.e. it is located on an invalid rank)
@@ -332,7 +332,7 @@ impl Default for RawBoard {
     }
 }
 
-/// Chessboard with a valid position
+/// Board that contains a valid position
 ///
 /// This board always contains a valid chess position. It is used for literally every chess operation:
 /// move generation, making and validating moves, verifying for check and checkmate.
