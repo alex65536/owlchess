@@ -315,7 +315,7 @@ impl Board {
         // King vs king + knight
         let knights =
             self.piece2(Color::White, Piece::Knight) | self.piece2(Color::Black, Piece::Knight);
-        if all_without_kings == knights && knights.popcount() == 1 {
+        if all_without_kings == knights && knights.len() == 1 {
             return true;
         }
 
@@ -424,10 +424,10 @@ impl TryFrom<RawBoard> for Board {
         }
 
         // Check TooManyPieces, NoKing, TooManyKings
-        if white.popcount() > 16 {
+        if white.len() > 16 {
             return Err(ValidateError::TooManyPieces(Color::White));
         }
-        if black.popcount() > 16 {
+        if black.len() > 16 {
             return Err(ValidateError::TooManyPieces(Color::Black));
         }
         let white_king = pieces[Cell::from_parts(Color::White, Piece::King).index()];
@@ -438,10 +438,10 @@ impl TryFrom<RawBoard> for Board {
         if black_king.is_empty() {
             return Err(ValidateError::NoKing(Color::Black));
         }
-        if white_king.popcount() > 1 {
+        if white_king.len() > 1 {
             return Err(ValidateError::TooManyKings(Color::White));
         }
-        if black_king.popcount() > 1 {
+        if black_king.len() > 1 {
             return Err(ValidateError::TooManyKings(Color::Black));
         }
 

@@ -218,7 +218,7 @@ mod magic {
         fn init_offsets() -> Offsets;
 
         fn get_mask_size(c: Coord) -> usize {
-            Self::build_mask(c).popcount() as usize
+            Self::build_mask(c).len() as usize
         }
 
         fn get_shift(c: Coord) -> usize {
@@ -297,7 +297,7 @@ mod magic {
 
     fn is_valid_magic_const<M: Magic>(coord: Coord, magic: u64) -> bool {
         let mask = M::build_mask(coord);
-        let shift = mask.popcount() as usize;
+        let shift = mask.len() as usize;
         let submask_cnt = 1_u64 << shift;
         let mut used = vec![false; submask_cnt as usize];
         for submask in 0..submask_cnt {
@@ -380,7 +380,7 @@ mod magic {
             for c in Coord::iter() {
                 let mask = M::build_mask(c);
                 let magic = magic_consts[c.index()];
-                let shift = mask.popcount() as usize;
+                let shift = mask.len() as usize;
                 let submask_cnt = 1_u64 << shift;
                 for submask in 0..submask_cnt {
                     let occupied = mask.deposit_bits(submask);

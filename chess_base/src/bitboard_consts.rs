@@ -1,6 +1,11 @@
+//! Simple and useful bitboard constants
+
 use crate::bitboard::Bitboard;
 use crate::types::{File, Rank};
 
+/// Bitboards containing all the squares on a given left-down diagonal
+///
+/// The diagonals are numbered in the same way as in [`Coord::diag1()`](crate::types::Coord::diag1).
 pub const DIAG1: [Bitboard; 15] = [
     Bitboard::from_raw(0x0000000000000001),
     Bitboard::from_raw(0x0000000000000102),
@@ -19,6 +24,9 @@ pub const DIAG1: [Bitboard; 15] = [
     Bitboard::from_raw(0x8000000000000000),
 ];
 
+/// Bitboards containing all the squares on a given right-down diagonal
+///
+/// The diagonals are numbered in the same way as in [`Coord::diag2()`](crate::types::Coord::diag2).
 pub const DIAG2: [Bitboard; 15] = [
     Bitboard::from_raw(0x0100000000000000),
     Bitboard::from_raw(0x0201000000000000),
@@ -48,6 +56,7 @@ const RANK: [Bitboard; 8] = [
     Bitboard::from_raw(0xff00000000000000),
 ];
 
+/// Returns a bitboard containing all the squares on a given rank `r`
 #[inline]
 pub const fn rank(r: Rank) -> Bitboard {
     RANK[r.index()]
@@ -64,10 +73,14 @@ const FILE: [Bitboard; 8] = [
     Bitboard::from_raw(0x8080808080808080),
 ];
 
+/// Returns a bitboard containing all the squares on a given file `f`
 #[inline]
 pub const fn file(f: File) -> Bitboard {
     FILE[f.index()]
 }
 
+/// Bitboard containing all the white squares on the board
 pub const CELLS_WHITE: Bitboard = Bitboard::from_raw(0xaa55aa55aa55aa55);
+
+/// Bitboard containing all the black squares on the board
 pub const CELLS_BLACK: Bitboard = Bitboard::from_raw(0x55aa55aa55aa55aa);
