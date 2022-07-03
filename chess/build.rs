@@ -266,7 +266,8 @@ mod magic {
         const SHIFTS: &'static [(isize, isize)] = &[(-1, 1), (-1, -1), (1, -1), (1, 1)];
 
         fn build_mask(c: Coord) -> Bitboard {
-            (bitboard_consts::DIAG[c.diag()] ^ bitboard_consts::ANTIDIAG[c.antidiag()]) & !DIAG_FRAME
+            (bitboard_consts::DIAG[c.diag()] ^ bitboard_consts::ANTIDIAG[c.antidiag()])
+                & !DIAG_FRAME
         }
 
         fn build_post_mask(c: Coord) -> Bitboard {

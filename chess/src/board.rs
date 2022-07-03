@@ -1,3 +1,5 @@
+//! Chessboard and related things
+
 use crate::bitboard::Bitboard;
 use crate::moves::{self, Move};
 use crate::types::{
@@ -12,85 +14,166 @@ use std::str::FromStr;
 
 use thiserror::Error;
 
+/// Chessboard validation error
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum ValidateError {
+    /// Invalid enpassant coordinate specified (i.e. it is located on an invalid rank)
     #[error("invalid enpassant position {0}")]
     InvalidEnpassant(Coord),
+    /// Too many pieces of given color
+    ///
+    /// No more than 16 pieces of each color is allowed.
     #[error("too many pieces of color {0:?}")]
     TooManyPieces(Color),
+    /// One of the sides doesn't have a king
     #[error("no king of color {0:?}")]
     NoKing(Color),
+    /// One of the sides has more than one king
     #[error("more than one king of color {0:?}")]
     TooManyKings(Color),
+    /// There is a pawn on the 1th or on the 8th rank
     #[error("invalid pawn position {0}")]
     InvalidPawn(Coord),
+    /// Opponent's king is under attack
     #[error("opponent's king is attacked")]
     OpponentKingAttacked,
 }
 
+/// Error parsing the first part of FEN (i.e. the positions of pieces on the board)
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum CellsParseError {
+    /// Rank is too large
     #[error("too many items in rank {0}")]
     RankOverflow(Rank),
+    /// Rank is too small
     #[error("not enough items in rank {0}")]
     RankUnderflow(Rank),
+    /// Too many ranks
     #[error("too many ranks")]
     Overflow,
+    /// Not enough ranks
     #[error("not enough ranks")]
     Underflow,
+    /// Unexpected character
     #[error("unexpected char {0:?}")]
     UnexpectedChar(char),
 }
 
+/// Error parsing [`RawBoard`] from FEN
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum RawFenParseError {
+    /// FEN contains non-ASCII characters
     #[error("non-ASCII data in FEN")]
     NonAscii,
+    /// FEN doesn't have board part
     #[error("board not specified")]
     NoBoard,
+    /// Error parsing board from FEN
     #[error("bad board: {0}")]
     Board(#[from] CellsParseError),
+    /// FEN doesn't have move side part
     #[error("no move side")]
     NoMoveSide,
+    /// Error parsing move side from FEN
     #[error("bad move side: {0}")]
     MoveSide(#[from] types::ColorParseError),
+    /// FEN doesn't have castling rights part
     #[error("no castling rights")]
     NoCastling,
+    /// Error parsing castling rights from FEN
     #[error("bad castling rights: {0}")]
     Castling(#[from] types::CastlingRightsParseError),
+    /// FEN doesn't have enpassant part
     #[error("no enpassant")]
     NoEnpassant,
+    /// Error parsing enpassant from FEN
     #[error("bad enpassant: {0}")]
     Enpassant(#[from] types::CoordParseError),
+    /// Enpassant rank is invalid
     #[error("invalid enpassant rank {0}")]
     InvalidEnpassantRank(Rank),
+    /// Error parsing move counter
     #[error("bad move counter: {0}")]
     MoveCounter(ParseIntError),
+    /// Error parsing move number
     #[error("bad move number: {0}")]
     MoveNumber(ParseIntError),
+    /// FEN contains extra data
     #[error("extra data in FEN")]
     ExtraData,
 }
 
+/// Error parsing [`Board`] from FEN
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum FenParseError {
+    /// Board cannot be parsed
     #[error("cannot parse fen: {0}")]
     Fen(#[from] RawFenParseError),
+    /// Board was parsed, but it's invalid
     #[error("invalid position: {0}")]
     Valid(#[from] ValidateError),
 }
 
+/// Raw chess board
+///
+/// Raw board contains all the necessary information about the chess position. But, unlike [`Board`],
+/// it is not validated and may contain an invalid position.
+///
+/// Raw board can be used to build or edit the position programmatically. After changing the necessary
+/// fields, it must be converted to [`Board`] via [`Board::try_from()`].
+///
+/// # Example
+///
+/// ```
+/// use owlchess::{RawBoard, Board, File, Rank, Color, Piece, Cell, CastlingRights};
+///
+/// let mut raw = RawBoard {
+///     cells: [Default::default(); 64],
+///     side: Color::White,
+///     castling: CastlingRights::EMPTY,
+///     enpassant: None,
+///     move_counter: 10,
+///     move_number: 42,
+/// };
+/// raw.put2(File::B, Rank::R2, Cell::from_parts(Color::White, Piece::King));
+/// raw.put2(File::D, Rank::R5, Cell::from_parts(Color::Black, Piece::King));
+///
+/// let board: Board = raw.try_into().unwrap();
+/// assert_eq!(board.as_fen(), "8/8/8/3k4/8/8/1K6/8 w - - 10 42");
+/// ```
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct RawBoard {
+    /// Contents of the board
+    ///
+    /// The indices in this array are the indices of coordinates. You might probably want to use
+    /// the functions like [`RawBoard::get()`] or [`RawBoard::put()`] instead of indexing this array
+    /// directly.
     pub cells: [Cell; 64],
+    /// Side to move
     pub side: Color,
+    /// Castling rights
     pub castling: CastlingRights,
+    /// En passant square
+    ///
+    /// Must be equal to `None` if no enpassant is allowed. Otherwise, it contains
+    /// the square with the pawn which can be captured by enpassant
     pub enpassant: Option<Coord>,
+    /// Number of half-moves without pawn moves or captures
+    ///
+    /// It is required for draw by 50 or 75 moves.
     pub move_counter: u16,
+    /// Move number
+    ///
+    /// Note that this is move number, not half-move number. It is incremented after each
+    /// move by Black.
     pub move_number: u16,
 }
 
 impl RawBoard {
+    /// Returns an empty `RawBoard`
+    ///
+    /// Does the same as [`RawBoard::default()`], except that this function is `const`.
+    #[inline]
     pub const fn empty() -> RawBoard {
         RawBoard {
             cells: [Cell::EMPTY; 64],
@@ -102,6 +185,7 @@ impl RawBoard {
         }
     }
 
+    /// Returns a board with the initial position
     pub fn initial() -> RawBoard {
         let mut res = RawBoard {
             cells: [Cell::EMPTY; 64],
@@ -128,20 +212,28 @@ impl RawBoard {
         res
     }
 
+    /// Parses a board from FEN
+    ///
+    /// Does the same as [`RawBoard::from_str`]. It is recommended to use this function instead of
+    /// `from_str()` for better readability.
+    #[inline]
     pub fn from_fen(fen: &str) -> Result<RawBoard, RawFenParseError> {
         RawBoard::from_str(fen)
     }
 
+    /// Returns the contents of the square with coordinate `c`
     #[inline]
     pub fn get(&self, c: Coord) -> Cell {
         unsafe { *self.cells.get_unchecked(c.index()) }
     }
 
+    /// Returns the contents of the square with file `file` and rank `rank`
     #[inline]
     pub fn get2(&self, file: File, rank: Rank) -> Cell {
         self.get(Coord::from_parts(file, rank))
     }
 
+    /// Puts `cell` to the square with coordinate `c`
     #[inline]
     pub fn put(&mut self, c: Coord, cell: Cell) {
         unsafe {
@@ -149,11 +241,16 @@ impl RawBoard {
         }
     }
 
+    /// Puts `cell` to the square with file `file` and rank `rank`
     #[inline]
     pub fn put2(&mut self, file: File, rank: Rank, cell: Cell) {
         self.put(Coord::from_parts(file, rank), cell);
     }
 
+    /// Returns Zobrist hash of the board
+    ///
+    /// Note that Zobrist hash doesn't contain move counter and move number, so it can be used
+    /// to detect draw by repetitions.
     #[inline]
     pub fn zobrist_hash(&self) -> u64 {
         let mut hash = if self.side == Color::White {
@@ -173,10 +270,56 @@ impl RawBoard {
         hash
     }
 
+    /// Wraps the board to allow pretty-printing with the given style `Style`
+    ///
+    /// The resulting wrapper implements [`fmt::Display`], so can be used with
+    /// `write!()`, `println!()`, or `ToString::to_string`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use owlchess::{RawBoard, board::PrettyStyle};
+    ///
+    /// let r = RawBoard::initial();
+    ///
+    /// let res = r#"
+    /// 8|rnbqkbnr
+    /// 7|pppppppp
+    /// 6|........
+    /// 5|........
+    /// 4|........
+    /// 3|........
+    /// 2|PPPPPPPP
+    /// 1|RNBQKBNR
+    /// -+--------
+    /// W|abcdefgh
+    /// "#;
+    /// assert_eq!(r.pretty(PrettyStyle::Ascii).to_string().trim(), res.trim());
+    ///
+    /// let res = r#"
+    /// 8│♜♞♝♛♚♝♞♜
+    /// 7│♟♟♟♟♟♟♟♟
+    /// 6│........
+    /// 5│........
+    /// 4│........
+    /// 3│........
+    /// 2│♙♙♙♙♙♙♙♙
+    /// 1│♖♘♗♕♔♗♘♖
+    /// ─┼────────
+    /// ○│abcdefgh
+    /// "#;
+    /// assert_eq!(r.pretty(PrettyStyle::Utf8).to_string().trim(), res.trim());
+    /// ```
+    #[inline]
     pub fn pretty(&self, style: PrettyStyle) -> Pretty<'_> {
         Pretty { raw: self, style }
     }
 
+    /// Converts the board into a FEN string
+    ///
+    /// Does the same as `RawBoard::to_string()`. It is recommended to use this function instead of
+    /// `to_string()` for better readability.
+    #[inline]
     pub fn as_fen(&self) -> String {
         self.to_string()
     }
@@ -333,13 +476,13 @@ impl Board {
     #[inline]
     pub fn calc_outcome(&self) -> Option<Outcome> {
         // First, we verify for checkmate or stalemate, because checkmate takes precedence over
-        // 50-move rule and 75-move rule.
+        // 50-move rule and 75-move rule
         if !self.has_legal_moves() {
             return if self.is_check() {
                 Some(Outcome::win(self.r.side.inv(), WinKind::Checkmate))
             } else {
                 Some(Outcome::Draw(DrawKind::Stalemate))
-            }
+            };
         }
 
         if let Some(draw) = self.is_draw_simple() {
