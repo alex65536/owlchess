@@ -1,3 +1,5 @@
+//! # 🦉🦉🦉
+
 pub use owlchess_base::bitboard;
 pub use owlchess_base::types;
 

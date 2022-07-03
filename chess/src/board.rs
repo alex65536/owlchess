@@ -332,6 +332,21 @@ impl Default for RawBoard {
     }
 }
 
+/// Chessboard with a valid position
+///
+/// This board always contains a valid chess position. It is used for literally every chess operation:
+/// move generation, making and validating moves, verifying for check and checkmate.
+///
+/// It contains a [`RawBoard`] alongside with auxilliary structures to make all the chess operations
+/// faster.
+///
+/// # Safety
+///
+/// The board must be always valid (i. e. `Ok(b.clone()) == b.raw().try_into()` must always hold). The
+/// only allowed exception is attack on the opponent's king after making a semi-legal move. In this case,
+/// you must call [`Board::is_opponent_king_attacked()`] and undo the offending before doing anything else.
+/// Alternatively, you can just drop the invalid board. Other actions with the board when the opponent's
+/// king is under attack are considered undefined behavior.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Board {
     pub(crate) r: RawBoard,
@@ -343,34 +358,47 @@ pub struct Board {
 }
 
 impl Board {
+    /// Returns a board with the initial position
     pub fn initial() -> Board {
         RawBoard::initial().try_into().unwrap()
     }
 
+    /// Parses a board from FEN
+    ///
+    /// Does the same as [`Board::from_str`]. It is recommended to use this function instead of
+    /// `from_str()` for better readability.
     pub fn from_fen(fen: &str) -> Result<Board, FenParseError> {
         Board::from_str(fen)
     }
 
+    /// Returns a view over the raw board
     #[inline]
     pub fn raw(&self) -> &RawBoard {
         &self.r
     }
 
+    /// Returns the contents of the square with coordinate `c`
     #[inline]
     pub fn get(&self, c: Coord) -> Cell {
         self.r.get(c)
     }
 
+    /// Returns the contents of the square with file `file` and rank `rank`
     #[inline]
     pub fn get2(&self, file: File, rank: Rank) -> Cell {
         self.r.get2(file, rank)
     }
 
+    /// Returns side to move
     #[inline]
     pub fn side(&self) -> Color {
         self.r.side
     }
 
+    /// Returns the bitboard over all the pieces with color `c`
+    ///
+    /// This function is quite fast, as it doesn't compute anything and just returns the
+    /// stored value.
     #[inline]
     pub fn color(&self, c: Color) -> Bitboard {
         if c == Color::White {
@@ -389,11 +417,22 @@ impl Board {
         }
     }
 
+    /// Returns the bitboard over all the cells equal to `c`
+    ///
+    /// **Note**: when `c` is an empty cell, the function just returns an empty bitboard,
+    /// not the bitboard over all the empty cells.
+    ///
+    /// This function is quite fast, as it doesn't compute anything and just returns the
+    /// stored value.
     #[inline]
     pub fn piece(&self, c: Cell) -> Bitboard {
         unsafe { *self.pieces.get_unchecked(c.index()) }
     }
 
+    /// Returns the bitboard over all the pieces of color `c` and kind `p`
+    ///
+    /// This function is quite fast, as it doesn't compute anything and just returns the
+    /// stored value.
     #[inline]
     pub fn piece2(&self, c: Color, p: Piece) -> Bitboard {
         self.piece(Cell::from_parts(c, p))
@@ -404,6 +443,7 @@ impl Board {
         unsafe { self.pieces.get_unchecked_mut(c.index()) }
     }
 
+    /// Returns the position of the king of color `c`
     #[inline]
     pub fn king_pos(&self, c: Color) -> Coord {
         self.piece(Cell::from_parts(c, Piece::King))
@@ -412,32 +452,60 @@ impl Board {
             .unwrap()
     }
 
+    /// Returns the Zobrist hash of the position
+    ///
+    /// This function is quite fast, as it doesn't compute anything and just returns the
+    /// stored value.
+    ///
+    /// Note that Zobrist hash doesn't contain move counter and move number, so it can be used
+    /// to detect draw by repetitions.
     #[inline]
     pub fn zobrist_hash(&self) -> u64 {
         self.hash
     }
 
+    /// Tries to apply move `mv` to the current board
+    ///
+    /// If `mv` is a legal move, then the new board with move `mv` is returned. Otherwise, an error
+    /// is returned.
     pub fn make_move(&self, mv: Move) -> Result<Self, moves::ValidateError> {
         moves::make_move(self, mv)
     }
 
+    /// Returns `true` if the opponent's king is under attack
+    ///
+    /// If it is under attack, you must undo the offending move before doing anything else. See doc for
+    /// [`Board`] for more details.
     #[inline]
     pub fn is_opponent_king_attacked(&self) -> bool {
         let c = self.r.side;
         movegen::is_cell_attacked(self, self.king_pos(c.inv()), c)
     }
 
+    /// Returns `true` if the current side has at least one legal move
     #[inline]
     pub fn has_legal_moves(&self) -> bool {
         movegen::has_legal_moves(self)
     }
 
+    /// Returns `true` if the current side is in check
     #[inline]
     pub fn is_check(&self) -> bool {
         let c = self.r.side;
         movegen::is_cell_attacked(self, self.king_pos(c), c.inv())
     }
 
+    /// Returns `true` if the position is guaranteed to be drawn because of insufficient material, regardless
+    /// of the players' moves
+    ///
+    /// Currently, such positions include:
+    ///
+    /// - king vs king
+    /// - king + knight vs king
+    /// - kings and bishops of the same color
+    ///
+    /// Note that king + knight vs king + knight is not considered a draw, as one of the sides can intentionally
+    /// corner itself, allowing its opponent to win.
     fn is_insufficient_material(&self) -> bool {
         let all_without_kings = self.all
             ^ (self.piece2(Color::White, Piece::King) | self.piece2(Color::Black, Piece::King));
@@ -463,7 +531,7 @@ impl Board {
         }
 
         // Kings and bishops of the same cell color. Note that we checked above that all the pieces
-        // have the same cell color, so we just need to ensure that all the pieces are bishops
+        // have the same cell color, so we just need to ensure that all the pieces are bishops.
         let bishops =
             self.piece2(Color::White, Piece::Bishop) | self.piece2(Color::Black, Piece::Bishop);
         if all_without_kings == bishops {
@@ -473,10 +541,19 @@ impl Board {
         false
     }
 
+    /// Calculates the current outcome on the board
+    ///
+    /// This function ignores draws by repetition, as [`Board`] doesn't remember the previous
+    /// positions. You need to use [`MoveChain`](crate::chain::MoveChain) if you want to consider
+    /// such draws.
+    ///
+    /// When calculating outcomes, outcomes passing [`OutcomeFilter::Force`](crate::types::OutcomeFilter::Force)
+    /// are the most prioritized, and outcomes not passing [`OutcomeFilter::Strict`](crate::types::OutcomeFilter::Strict)
+    /// are the least prioritized.
     #[inline]
     pub fn calc_outcome(&self) -> Option<Outcome> {
-        // First, we verify for checkmate or stalemate, because checkmate takes precedence over
-        // 50-move rule and 75-move rule
+        // First, we verify for checkmate or stalemate, as force outcome take precedence over
+        // non-force ones.
         if !self.has_legal_moves() {
             return if self.is_check() {
                 Some(Outcome::win(self.r.side.inv(), WinKind::Checkmate))
@@ -485,20 +562,26 @@ impl Board {
             };
         }
 
-        if let Some(draw) = self.is_draw_simple() {
+        if let Some(draw) = self.calc_draw_simple() {
             return Some(Outcome::Draw(draw));
         }
 
         None
     }
 
-    pub fn is_draw_simple(&self) -> Option<DrawKind> {
+    /// Calculates the current outcome on the board, considering only draws by insufficient material,
+    /// by 50 and 75 move rules.
+    ///
+    /// For the details about outcome priority, see docs for [`Board::calc_outcome()`]
+    #[inline]
+    pub fn calc_draw_simple(&self) -> Option<DrawKind> {
         // Check for insufficient material
         if self.is_insufficient_material() {
             return Some(DrawKind::InsufficientMaterial);
         }
 
-        // Check for 50/75 move rule
+        // Check for 50/75 move rule. Note that check for 50 move rule must
+        // come after all other ones, because it is non-strict.
         if self.r.move_counter >= 150 {
             return Some(DrawKind::Moves75);
         }
@@ -509,10 +592,22 @@ impl Board {
         None
     }
 
+    /// Wraps the board to allow pretty-printing with the given style `Style`
+    ///
+    /// The resulting wrapper implements [`fmt::Display`], so can be used with
+    /// `write!()`, `println!()`, or `ToString::to_string`.
+    ///
+    /// See docs `[RawBoard::pretty()]` for more usage details.
+    #[inline]
     pub fn pretty(&self, style: PrettyStyle) -> Pretty<'_> {
         self.r.pretty(style)
     }
 
+    /// Converts the board into a FEN string
+    ///
+    /// Does the same as `Board::to_string()`. It is recommended to use this function instead of
+    /// `to_string()` for better readability.
+    #[inline]
     pub fn as_fen(&self) -> String {
         self.to_string()
     }
@@ -627,12 +722,18 @@ impl TryFrom<&RawBoard> for Board {
     }
 }
 
+/// Style for [`RawBoard::pretty()`] and [`Board::pretty()`]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PrettyStyle {
+    /// Print pieces and frames as ASCII characters
     Ascii,
+    /// Print pieces and frames as fancy Unicode characters
     Utf8,
 }
 
+/// Wrapper to pretty-print the board
+///
+/// See docs for [`RawBoard::pretty()`] for more details.
 pub struct Pretty<'a> {
     raw: &'a RawBoard,
     style: PrettyStyle,

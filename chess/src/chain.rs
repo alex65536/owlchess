@@ -151,6 +151,30 @@ impl<R: Repeat> BaseMoveChain<R> {
     }
 
     pub fn calc_outcome(&self) -> Option<Outcome> {
+        // We need to handle the priority of different outcomes carefully.
+        //
+        // Checkmate and stalemate are definitely preferred over all the other
+        // outcomes, though they cannot happen at the same time with draw by
+        // repetitions.
+        //
+        // Next, all the strict outcomes must be checked before the non-strict ones.
+        // For example, if there is both `DrawKind::Moves50` and `DrawKind::Repeat5`,
+        // the latter must be preferred, as it's strict. Still, we have no priority
+        // between `DrawKind::Moves75` and `DrawKind::Repeat5` or between
+        // `DrawKind::Moves50` and `DrawKind::Repeat3`.
+        //
+        // So, we can do the following:
+        // - first, call `Board::calc_outcome()` and check for strict outcomes
+        // - then, check for draw by repetitions
+        // - finally, return a non-strict outcome from `Board::calc_outcome()`, if any
+
+        let outcome = self.board.calc_outcome();
+        if let Some(out) = outcome {
+            if out.passes(OutcomeFilter::Strict) {
+                return outcome;
+            }
+        }
+
         let rep = self.repeat.repeat_count(&self.board);
         if rep >= 5 {
             return Some(Outcome::Draw(DrawKind::Repeat5));
@@ -158,7 +182,8 @@ impl<R: Repeat> BaseMoveChain<R> {
         if rep >= 3 {
             return Some(Outcome::Draw(DrawKind::Repeat3));
         }
-        self.board.calc_outcome()
+
+        outcome
     }
 
     pub fn set_auto_outcome(&mut self, filter: OutcomeFilter) -> Option<Outcome> {
