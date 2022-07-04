@@ -597,7 +597,7 @@ impl Board {
     /// The resulting wrapper implements [`fmt::Display`], so can be used with
     /// `write!()`, `println!()`, or `ToString::to_string`.
     ///
-    /// See docs `[RawBoard::pretty()]` for more usage details.
+    /// See docs for [`RawBoard::pretty()`] for more usage details.
     #[inline]
     pub fn pretty(&self, style: PrettyStyle) -> Pretty<'_> {
         self.r.pretty(style)
