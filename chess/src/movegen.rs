@@ -1,3 +1,5 @@
+//! Move generation and related things
+
 use crate::bitboard::Bitboard;
 use crate::board::Board;
 use crate::moves::{self, Move, MoveKind, PromoteKind};
@@ -46,6 +48,16 @@ fn do_cell_attackers<C: generic::Color>(b: &Board, coord: Coord) -> Bitboard {
         | (attack::rook(coord, b.all) & line_pieces(b, C::COLOR))
 }
 
+/// Returns true if the square `coord` is attacked by pieces of color `color`
+///
+/// Suppose that the piece on the position `coord` is replaced by a piece of
+/// color opposite to `color`, and `color` is to move. Then, the function checks
+/// if the side `color` is able to capture the piece on the position `coord` via
+/// a pseudo-legal move.
+///
+/// This function does the same as `cell_attackers(b, coord, color).is_nonempty()`.
+///
+/// **Note**: this function doesn't consider enpassant a capture.
 pub fn is_cell_attacked(b: &Board, coord: Coord, color: Color) -> bool {
     match color {
         Color::White => do_is_cell_attacked::<generic::White>(b, coord),
@@ -53,6 +65,15 @@ pub fn is_cell_attacked(b: &Board, coord: Coord, color: Color) -> bool {
     }
 }
 
+/// Returns the bitboard over all the pieces of color `color` that attack the square
+/// `coord`
+///
+/// Suppose that the piece on the position `coord` is replaced by a piece of
+/// color opposite to `color`, and `color` is to move. Then, the function enumerates
+/// all the pieces of the side `color` which are able to capture the piece on the
+/// position `coord` via a pseudo-legal move.
+///
+/// **Note**: this function doesn't consider enpassant a capture.
 pub fn cell_attackers(b: &Board, coord: Coord, color: Color) -> Bitboard {
     match color {
         Color::White => do_cell_attackers::<generic::White>(b, coord),
@@ -66,6 +87,10 @@ trait MaybeMovePush {
     fn push(&mut self, m: Move) -> Result<(), Self::Err>;
 }
 
+/// Compact, allocation-free vector which is able to hold all the moves in every given
+/// position
+///
+/// This is a wrapper over [`ArrayVec`] and behaves basically the same way.
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 pub struct MoveList(ArrayVec<Move, 256>);
 
@@ -102,12 +127,16 @@ impl<'a> IntoIterator for &'a mut MoveList {
 }
 
 impl MoveList {
+    /// Creates a new, empty `MoveList`
+    #[inline]
     pub fn new() -> MoveList {
         MoveList(ArrayVec::new())
     }
 }
 
+/// Push a move into a collection
 pub trait MovePush {
+    /// Pushes the move `m` into a collection
     fn push(&mut self, m: Move);
 }
 
@@ -536,6 +565,13 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
     }
 }
 
+/// Semilegal move generator
+///
+/// The move is considered semilegal if it is allowed by chess rules if the king would be
+/// allowed to be under attack after making such move.
+///
+/// Semilegal generator works faster than the legal one, so it can be better in the cases
+/// when moves can be validated for legality while trying to apply them, not beforehands.
 pub mod semilegal {
     use super::{MoveGenImpl, MoveList, MovePush, UnsafeMoveList};
     use crate::{board::Board, generic, types::Color};
@@ -562,23 +598,43 @@ pub mod semilegal {
     }
 
     do_impl! {
+        /// Generates all the semilegal moves in the given position
         gen_all;
+        /// Generates all the semilegal moves in the given position and puts generated
+        /// moves into `dst`
         gen_all_into;
 
+        /// Generates all the semilegal captures in the given position
         gen_capture;
+        /// Generates all the semilegal captures in the given position and puts generated
+        /// moves into `dst`
         gen_capture_into;
 
+        /// Generates all the semilegal non-capture moves in the given position
         gen_simple;
+        /// Generates all the semilegal non-capture moves in the given position and puts
+        /// generated moves into `dst`
         gen_simple_into;
 
+        /// Generates all the semilegal non-capture moves (except promotes) in the given
+        /// position
         gen_simple_no_promote;
+        /// Generates all the semilegal non-capture moves (except promotes) in the given
+        /// position and puts generated moves into `dst`
         gen_simple_no_promote_into;
 
+        /// Generates all the semilegal non-capture promotes in the given position
         gen_simple_promote;
+        /// Generates all the semilegal non-capture promotes in the given position and
+        /// puts generated moves into `dst`
         gen_simple_promote_into;
     }
 }
 
+/// Legal move generator
+///
+/// Legal moves are the moves fully allowed by chess rules. Use this generator instead of the
+/// [semilegal one](semilegal) if you want all the moves to be validated for legality beforehands.
 pub mod legal {
     use super::MoveList;
     use crate::board::Board;
@@ -603,10 +659,15 @@ pub mod legal {
     }
 
     do_impl! {
+        /// Generates all the legal moves in the given position
         gen_all;
+        /// Generates all the legal captures in the given position
         gen_capture;
+        /// Generates all the legal non-capture moves in the given position
         gen_simple;
+        /// Generates all the legal non-capture moves (except promotes) in the given position
         gen_simple_no_promote;
+        /// Generates all the legal non-capture promotes in the given position
         gen_simple_promote;
     }
 }
@@ -621,6 +682,10 @@ impl MaybeMovePush for ErrOnFirst {
     }
 }
 
+/// Returns `true` if the current side has at least one legal move
+///
+/// This function is faster than just generating all the legal moves via [`legal::gen_all`],
+/// because it is able to stop on the first generated legal move.
 pub fn has_legal_moves(b: &Board) -> bool {
     let mut err_on_first = ErrOnFirst;
     let mut p = unsafe { LegalFilter::new(b.clone(), &mut err_on_first) };
