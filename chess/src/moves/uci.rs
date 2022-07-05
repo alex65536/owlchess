@@ -1,3 +1,5 @@
+//! Utilities to work with moves in UCI format
+
 use super::base::{self, CreateError, MoveKind, PromotePiece, ValidateError};
 use crate::board::Board;
 use crate::types::{Cell, Color, Coord, CoordParseError, File, Piece};
@@ -8,42 +10,60 @@ use std::str::FromStr;
 
 use thiserror::Error;
 
+/// Error creating a parsed UCI representation from string
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum RawParseError {
+    /// Bad string length
     #[error("bad string length")]
     BadLength,
+    /// Bad source square
     #[error("bad source: {0}")]
     BadSrc(CoordParseError),
+    /// Bad destination square
     #[error("bad destination: {0}")]
     BadDst(CoordParseError),
+    /// Bad promote character
     #[error("bad promote char {0:?}")]
     BadPromote(char),
 }
 
+/// Error parsing UCI into a well-formed [`moves::Move`](super::Move)
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum BasicParseError {
+    /// Error parsing move
     #[error("cannot parse move: {0}")]
     Parse(#[from] RawParseError),
+    /// Error converting the parsed move into a well-formed move
     #[error("cannot create move: {0}")]
     Create(#[from] CreateError),
 }
 
+/// Error parsing UCI into a semilegal or legal [`moves::Move`](super::Move)
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum ParseError {
+    /// Error parsing move
     #[error("cannot parse move: {0}")]
     Parse(#[from] RawParseError),
+    /// Error converting the parsed move into a well-formed move
     #[error("cannot create move: {0}")]
     Create(#[from] CreateError),
+    /// Move is not semilegal or legal
     #[error("invalid move: {0}")]
     Validate(#[from] ValidateError),
 }
 
+/// Parsed move in UCI format
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Move {
+    /// Null UCI move
     Null,
+    /// Non-null UCI move
     Move {
+        /// Source square
         src: Coord,
+        /// Destination square
         dst: Coord,
+        /// Piece to promote, if any
         promote: Option<PromotePiece>,
     },
 }
@@ -88,6 +108,7 @@ impl Move {
         }
     }
 
+    /// Converts the UCI move into [`moves::Move`](super::Move) in position `b`
     pub fn into_move(self, b: &Board) -> Result<base::Move, CreateError> {
         match b.r.side {
             Color::White => self.do_into_move::<generic::White>(b),

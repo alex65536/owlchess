@@ -7,12 +7,12 @@ pub mod uci;
 
 pub use base::*;
 
-/// Parsed move in SAN format.
+/// Parsed move in SAN format
 ///
-/// This is a convenience alias for [`san::Move`]
+/// This is a convenience alias for [`san::Move`].
 pub type SanMove = san::Move;
 
-/// Parsed move in UCI format.
+/// Parsed move in UCI format
 ///
-/// This is a convenience alias for [`uci::Move`]
+/// This is a convenience alias for [`uci::Move`].
 pub type UciMove = uci::Move;
