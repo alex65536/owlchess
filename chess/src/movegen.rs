@@ -2,7 +2,7 @@
 
 use crate::bitboard::Bitboard;
 use crate::board::Board;
-use crate::moves::{self, Move, MoveKind, PromoteKind};
+use crate::moves::{self, Move, MoveKind, PromotePiece};
 use crate::types::{CastlingSide, Cell, Color, Coord, File, Piece};
 use crate::{attack, bitboard_consts, castling, generic, geometry, pawns};
 
@@ -490,7 +490,7 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
         &mut self,
         src: File,
         dst: File,
-        promote: Option<PromoteKind>,
+        promote: Option<PromotePiece>,
     ) -> Result<(), P::Err> {
         let promote_mask = bitboard_consts::rank(geometry::promote_src_rank(C::COLOR));
         let pawn_mask = match promote {
@@ -501,7 +501,7 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
             self.board.piece2(C::COLOR, Piece::Pawn) & pawn_mask & bitboard_consts::file(src);
         let allowed = self.board.color(C::COLOR.inv());
         let kind = promote
-            .map(MoveKind::from_promote)
+            .map(MoveKind::from)
             .unwrap_or(MoveKind::PawnSimple);
         if src.index() == dst.index() + 1 {
             let left_delta = geometry::pawn_left_delta(C::COLOR);
@@ -708,7 +708,7 @@ pub(crate) fn san_pawn_capture_candidates<P: MovePush>(
     b: &Board,
     src: File,
     dst: File,
-    promote: Option<PromoteKind>,
+    promote: Option<PromotePiece>,
     res: &mut P,
 ) {
     let mut p = unsafe { LegalFilter::new(b.clone(), res) };
@@ -851,7 +851,7 @@ mod tests {
         );
 
         let mut ml = MoveList::new();
-        san_pawn_capture_candidates(&b, File::E, File::D, Some(PromoteKind::Knight), &mut ml);
+        san_pawn_capture_candidates(&b, File::E, File::D, Some(PromotePiece::Knight), &mut ml);
         assert_eq!(
             ml.iter().map(ToString::to_string).collect::<BTreeSet<_>>(),
             BTreeSet::new(),
@@ -865,7 +865,7 @@ mod tests {
         );
 
         let mut ml = MoveList::new();
-        san_pawn_capture_candidates(&b, File::G, File::H, Some(PromoteKind::Knight), &mut ml);
+        san_pawn_capture_candidates(&b, File::G, File::H, Some(PromotePiece::Knight), &mut ml);
         assert_eq!(
             ml.iter().map(ToString::to_string).collect::<BTreeSet<_>>(),
             BTreeSet::from(["g7h8n".to_string()]),

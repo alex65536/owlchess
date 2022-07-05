@@ -1,4 +1,4 @@
-use super::base::{self, CreateError, MoveKind, PromoteKind, ValidateError};
+use super::base::{self, CreateError, MoveKind, PromotePiece, ValidateError};
 use super::uci;
 use crate::bitboard::Bitboard;
 use crate::board::Board;
@@ -61,8 +61,8 @@ trait PieceTheme {
     fn piece_to_char(piece: Piece) -> char;
     fn promote_sign() -> &'static str;
 
-    fn promote_to_char(promote: PromoteKind) -> char {
-        Self::piece_to_char(promote.piece())
+    fn promote_to_char(promote: PromotePiece) -> char {
+        Self::piece_to_char(promote.into())
     }
 }
 
@@ -118,17 +118,17 @@ pub enum Data {
     Castling(CastlingSide),
     PawnMove {
         dst: Coord,
-        promote: Option<PromoteKind>,
+        promote: Option<PromotePiece>,
     },
     PawnCapture {
         src: File,
         dst: Coord,
-        promote: Option<PromoteKind>,
+        promote: Option<PromotePiece>,
     },
     PawnCaptureShort {
         src: File,
         dst: File,
-        promote: Option<PromoteKind>,
+        promote: Option<PromotePiece>,
     },
     Simple {
         piece: Piece,
@@ -141,7 +141,7 @@ pub enum Data {
 
 pub struct StyledData<'a>(&'a Data, Style);
 
-struct PromoteFmt<T: PieceTheme>(Option<PromoteKind>, PhantomData<T>);
+struct PromoteFmt<T: PieceTheme>(Option<PromotePiece>, PhantomData<T>);
 
 impl<T: PieceTheme> fmt::Display for PromoteFmt<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
@@ -274,18 +274,18 @@ impl Data {
                 if mv.src().file() == mv.dst().file() {
                     Data::PawnMove {
                         dst: mv.dst(),
-                        promote: mv.kind().promote(),
+                        promote: mv.kind().try_into().ok(),
                     }
                 } else {
                     Data::PawnCapture {
                         src: mv.src().file(),
                         dst: mv.dst(),
-                        promote: mv.kind().promote(),
+                        promote: mv.kind().try_into().ok(),
                     }
                 }
             }
             MoveKind::CastlingKingside | MoveKind::CastlingQueenside => {
-                Data::Castling(mv.kind().castling().unwrap())
+                Data::Castling(mv.kind().try_into().unwrap())
             }
             MoveKind::Simple => {
                 let piece = b.get(mv.src()).piece().unwrap();
@@ -311,7 +311,7 @@ impl Data {
                 Ok(mv)
             }
             Self::Castling(side) => {
-                let mv = base::Move::castling(b.side(), side);
+                let mv = base::Move::from_castling(b.side(), side);
                 mv.validate(b)?;
                 Ok(mv)
             }
@@ -326,7 +326,7 @@ impl Data {
                     kind = MoveKind::PawnDouble;
                 }
                 let mv = base::Move::new(
-                    promote.map(MoveKind::from_promote).unwrap_or(kind),
+                    promote.map(MoveKind::from).unwrap_or(kind),
                     src,
                     dst,
                     b.side(),
@@ -351,7 +351,7 @@ impl Data {
                 let src =
                     Coord::from_parts(src, dst.rank()).add(-geometry::pawn_forward_delta(b.side()));
                 let mv = base::Move::new(
-                    promote.map(MoveKind::from_promote).unwrap_or(kind),
+                    promote.map(MoveKind::from).unwrap_or(kind),
                     src,
                     dst,
                     b.side(),
@@ -507,10 +507,10 @@ impl FromStr for Data {
         let (promote, bytes) = match bytes.split_last() {
             Some((b @ (b'N' | b'B' | b'R' | b'Q'), rest)) => {
                 let promote = match b {
-                    b'N' => PromoteKind::Knight,
-                    b'B' => PromoteKind::Bishop,
-                    b'R' => PromoteKind::Rook,
-                    b'Q' => PromoteKind::Queen,
+                    b'N' => PromotePiece::Knight,
+                    b'B' => PromotePiece::Bishop,
+                    b'R' => PromotePiece::Rook,
+                    b'Q' => PromotePiece::Queen,
                     _ => unreachable!(),
                 };
                 let rest = match rest.split_last() {

@@ -320,8 +320,8 @@ impl<R: Repeat> BaseMoveChain<R> {
     ///
     /// # Safety
     ///
-    /// The move must be either legal or null. Also, the opponent's king must not be under
-    /// attack after applying this move. Otherwise, the behavior is undefined.
+    /// The move must be either legal or null, and the move cannot be null if the king is in
+    /// check. Otherwise, the behavior is undefined.
     #[inline]
     pub unsafe fn push_unchecked(&mut self, mv: Move) {
         let u = moves::make_move_unchecked(&mut self.board, mv);

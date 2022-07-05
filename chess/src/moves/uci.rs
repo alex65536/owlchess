@@ -1,4 +1,4 @@
-use super::base::{self, CreateError, MoveKind, PromoteKind, ValidateError};
+use super::base::{self, CreateError, MoveKind, PromotePiece, ValidateError};
 use crate::board::Board;
 use crate::types::{Cell, Color, Coord, CoordParseError, File, Piece};
 use crate::{generic, geometry};
@@ -44,7 +44,7 @@ pub enum Move {
     Move {
         src: Coord,
         dst: Coord,
-        promote: Option<PromoteKind>,
+        promote: Option<PromotePiece>,
     },
 }
 
@@ -53,7 +53,7 @@ impl Move {
         match *self {
             Move::Null => Ok(base::Move::NULL),
             Move::Move { src, dst, promote } => {
-                let kind = promote.map(MoveKind::from_promote).unwrap_or_else(|| {
+                let kind = promote.map(MoveKind::from).unwrap_or_else(|| {
                     // Pawn moves
                     if b.get(src) == Cell::from_parts(C::COLOR, Piece::Pawn) {
                         if src.rank() == geometry::double_move_src_rank(C::COLOR)
@@ -105,7 +105,7 @@ impl From<base::Move> for Move {
         Move::Move {
             src: mv.src(),
             dst: mv.dst(),
-            promote: mv.kind().promote(),
+            promote: mv.kind().try_into().ok(),
         }
     }
 }
@@ -117,10 +117,10 @@ impl fmt::Display for Move {
             Move::Move { src, dst, promote } => {
                 write!(f, "{}{}", src, dst)?;
                 match promote {
-                    Some(PromoteKind::Knight) => write!(f, "n")?,
-                    Some(PromoteKind::Bishop) => write!(f, "b")?,
-                    Some(PromoteKind::Rook) => write!(f, "r")?,
-                    Some(PromoteKind::Queen) => write!(f, "q")?,
+                    Some(PromotePiece::Knight) => write!(f, "n")?,
+                    Some(PromotePiece::Bishop) => write!(f, "b")?,
+                    Some(PromotePiece::Rook) => write!(f, "r")?,
+                    Some(PromotePiece::Queen) => write!(f, "q")?,
                     None => {}
                 };
                 Ok(())
@@ -143,10 +143,10 @@ impl FromStr for Move {
         let dst = Coord::from_str(&s[2..4]).map_err(RawParseError::BadDst)?;
         let promote = if s.len() == 5 {
             Some(match s.as_bytes()[4] {
-                b'n' => PromoteKind::Knight,
-                b'b' => PromoteKind::Bishop,
-                b'r' => PromoteKind::Rook,
-                b'q' => PromoteKind::Queen,
+                b'n' => PromotePiece::Knight,
+                b'b' => PromotePiece::Bishop,
+                b'r' => PromotePiece::Rook,
+                b'q' => PromotePiece::Queen,
                 b => return Err(RawParseError::BadPromote(b as char)),
             })
         } else {

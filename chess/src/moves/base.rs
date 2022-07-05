@@ -9,101 +9,177 @@ use std::str::FromStr;
 
 use thiserror::Error;
 
+/// Move kind
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum MoveKind {
+    /// Null move
     Null = 0,
+    /// Non-pawn move or capture (except castling)
     Simple = 1,
+    /// Kingside castling
     CastlingKingside = 2,
+    /// Queenside castling
     CastlingQueenside = 3,
+    /// Single pawn move (either non-capture or capture)
     PawnSimple = 4,
+    /// Double pawn move
     PawnDouble = 5,
+    /// Enpassant
     Enpassant = 6,
+    /// Pawn promote to knight (either non-capture or capture)
     PromoteKnight = 7,
+    /// Pawn promote to bishop (either non-capture or capture)
     PromoteBishop = 8,
+    /// Pawn promote to rook (either non-capture or capture)
     PromoteRook = 9,
+    /// Pawn promote to queen (either non-capture or capture)
     PromoteQueen = 10,
 }
 
+/// Target piece for promotion
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
-pub enum PromoteKind {
+pub enum PromotePiece {
     Knight = 2,
     Bishop = 3,
     Rook = 4,
     Queen = 5,
 }
 
+/// Move output style
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Style {
+    /// Output in SAN format, with Latin letters for pieces
     San,
+    /// Output in SAN format, with UTF-8 letters for pieces
     SanUtf8,
+    /// Output in UCI format
     Uci,
 }
 
-impl PromoteKind {
+impl From<PromotePiece> for Piece {
     #[inline]
-    pub const fn piece(&self) -> Piece {
-        match self {
-            PromoteKind::Knight => Piece::Knight,
-            PromoteKind::Bishop => Piece::Bishop,
-            PromoteKind::Rook => Piece::Rook,
-            PromoteKind::Queen => Piece::Queen,
-        }
-    }
-
-    #[inline]
-    pub const fn from(p: Piece) -> Option<Self> {
+    fn from(p: PromotePiece) -> Self {
         match p {
-            Piece::Knight => Some(PromoteKind::Knight),
-            Piece::Bishop => Some(PromoteKind::Bishop),
-            Piece::Rook => Some(PromoteKind::Rook),
-            Piece::Queen => Some(PromoteKind::Queen),
-            _ => None,
+            PromotePiece::Knight => Piece::Knight,
+            PromotePiece::Bishop => Piece::Bishop,
+            PromotePiece::Rook => Piece::Rook,
+            PromotePiece::Queen => Piece::Queen,
         }
     }
 }
 
-impl MoveKind {
+impl TryFrom<Piece> for PromotePiece {
+    type Error = ();
+
     #[inline]
-    pub const fn from_castling(side: CastlingSide) -> Self {
+    fn try_from(p: Piece) -> Result<Self, Self::Error> {
+        match p {
+            Piece::Knight => Ok(PromotePiece::Knight),
+            Piece::Bishop => Ok(PromotePiece::Bishop),
+            Piece::Rook => Ok(PromotePiece::Rook),
+            Piece::Queen => Ok(PromotePiece::Queen),
+            _ => Err(()),
+        }
+    }
+}
+
+impl From<CastlingSide> for MoveKind {
+    #[inline]
+    fn from(side: CastlingSide) -> Self {
         match side {
             CastlingSide::King => Self::CastlingKingside,
             CastlingSide::Queen => Self::CastlingQueenside,
         }
     }
+}
+
+impl TryFrom<MoveKind> for CastlingSide {
+    type Error = ();
 
     #[inline]
-    pub const fn from_promote(kind: PromoteKind) -> Self {
+    fn try_from(kind: MoveKind) -> Result<Self, Self::Error> {
         match kind {
-            PromoteKind::Knight => Self::PromoteKnight,
-            PromoteKind::Bishop => Self::PromoteBishop,
-            PromoteKind::Rook => Self::PromoteRook,
-            PromoteKind::Queen => Self::PromoteQueen,
-        }
-    }
-
-    #[inline]
-    pub const fn castling(&self) -> Option<CastlingSide> {
-        match *self {
-            Self::CastlingKingside => Some(CastlingSide::King),
-            Self::CastlingQueenside => Some(CastlingSide::Queen),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    pub const fn promote(&self) -> Option<PromoteKind> {
-        match *self {
-            Self::PromoteKnight => Some(PromoteKind::Knight),
-            Self::PromoteBishop => Some(PromoteKind::Bishop),
-            Self::PromoteRook => Some(PromoteKind::Rook),
-            Self::PromoteQueen => Some(PromoteKind::Queen),
-            _ => None,
+            MoveKind::CastlingKingside => Ok(Self::King),
+            MoveKind::CastlingQueenside => Ok(Self::Queen),
+            _ => Err(()),
         }
     }
 }
 
+impl From<PromotePiece> for MoveKind {
+    #[inline]
+    fn from(kind: PromotePiece) -> Self {
+        match kind {
+            PromotePiece::Knight => Self::PromoteKnight,
+            PromotePiece::Bishop => Self::PromoteBishop,
+            PromotePiece::Rook => Self::PromoteRook,
+            PromotePiece::Queen => Self::PromoteQueen,
+        }
+    }
+}
+
+impl TryFrom<MoveKind> for PromotePiece {
+    type Error = ();
+
+    #[inline]
+    fn try_from(kind: MoveKind) -> Result<Self, Self::Error> {
+        match kind {
+            MoveKind::PromoteKnight => Ok(Self::Knight),
+            MoveKind::PromoteBishop => Ok(Self::Bishop),
+            MoveKind::PromoteRook => Ok(Self::Rook),
+            MoveKind::PromoteQueen => Ok(Self::Queen),
+            _ => Err(()),
+        }
+    }
+}
+
+impl MoveKind {
+    /// Returns the piece after promote is this move kind represents a promote
+    ///
+    /// Otherwise, returns `None`.
+    #[inline]
+    pub fn promote(self) -> Option<Piece> {
+        let piece: PromotePiece = self.try_into().ok()?;
+        Some(piece.into())
+    }
+}
+
+/// Chess move
+///
+/// Represents a chess move which can be applied to the chess board.
+///
+/// Moves can have different degrees of validity:
+///
+/// - _Well-formed_. A move is considered well-formed if there exists a position in which this move
+///   is semilegal. Note that such existence is only a sufficient condition, so you may create a
+///   well-formed move which would not be semilegal in any position. It is determined by [`Move::is_well_formed()`]
+///   whether the move is well-formed.
+///
+///   Null move is explicitly well-formed.
+///
+///   Note that using non-well-formed moves other than checking them via [`Move::is_well_formed()`] or
+///   examining their fields via getters, is undefined behavior.
+///
+/// - _Semilegal_. A move is considered semi-legal if it's valid by the rules of chess, except that the king can
+///   remain under attack after such move.
+///
+///   Null move is not considered semilegal (but see the [notes below](#null-move)).
+///
+/// - _Legal_. A move is considered legal if it's semilegal plus the king doesn't remain under attack. So, such move
+///   is fully valid by the rules of check.
+///
+/// # Null move
+///
+/// Null move is a move that just flips the move side, without changing the position. Such move doesn't exist
+/// is chess, but may be useful for chess engines, for example, to implement null move heuristics.
+///
+/// Note that this kind of moves is a special one.
+///
+/// As stated above, it is well-formed but not semilegal. So, it is not accepted by safe function [`make_move()`],
+/// but is accepted like a semilegal move by unsafe functions (such as [`make_move_unchecked()`] or
+/// [`try_make_move_unchecked()`]).
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Move {
     kind: MoveKind,
@@ -112,21 +188,27 @@ pub struct Move {
     side: Option<Color>,
 }
 
+/// Error indicating that move is invalid
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum ValidateError {
+    /// Move is not semi-legal
     #[error("move is not semi-legal")]
     NotSemiLegal,
+    /// Move is not legal
     #[error("move is not legal")]
     NotLegal,
 }
 
+/// Error creating move
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum CreateError {
+    /// Move is not well-formed
     #[error("move is not well-formed")]
     NotWellFormed,
 }
 
 impl Move {
+    /// Null move
     pub const NULL: Move = Move {
         kind: MoveKind::Null,
         src: Coord::from_index(0),
@@ -134,8 +216,9 @@ impl Move {
         side: None,
     };
 
+    /// Creates a castling move made by `color` with side `side`
     #[inline]
-    pub fn castling(color: Color, side: CastlingSide) -> Move {
+    pub fn from_castling(color: Color, side: CastlingSide) -> Move {
         let rank = geometry::castling_rank(color);
         let src = Coord::from_parts(File::E, rank);
         let dst = match side {
@@ -143,13 +226,20 @@ impl Move {
             CastlingSide::Queen => Coord::from_parts(File::C, rank),
         };
         Move {
-            kind: MoveKind::from_castling(side),
+            kind: MoveKind::from(side),
             src,
             dst,
             side: Some(color),
         }
     }
 
+    /// Creates a new non-null move from its raw parts
+    ///
+    /// # Safety
+    ///
+    /// If the created move is not well formed, it is undefined behavior to do with it something other
+    /// than checking it for well-formedness via [`Move::is_well_formed()`] or examining its fields via
+    /// getters.
     #[inline]
     pub const unsafe fn new_unchecked(kind: MoveKind, src: Coord, dst: Coord, side: Color) -> Move {
         Move {
@@ -160,36 +250,49 @@ impl Move {
         }
     }
 
+    /// Creates a move from the UCI string `s` if `b` is the positon preceding this move
+    ///
+    /// The returned move is **not** guaranteed to be semilegal.
+    #[inline]
     pub fn from_uci(s: &str, b: &Board) -> Result<Move, uci::BasicParseError> {
         Ok(uci::Move::from_str(s)?.into_move(b)?)
     }
 
+    /// Same as [`Move::from_uci()`], but the returned move is guaranteed to be semilegal
     pub fn from_uci_semilegal(s: &str, b: &Board) -> Result<Move, uci::ParseError> {
         let res = uci::Move::from_str(s)?.into_move(b)?;
         res.semi_validate(b)?;
         Ok(res)
     }
 
+    /// Same as [`Move::from_uci()`], but the returned move is guaranteed to be legal
     pub fn from_uci_legal(s: &str, b: &Board) -> Result<Move, uci::ParseError> {
         let res = uci::Move::from_str(s)?.into_move(b)?;
         res.validate(b)?;
         Ok(res)
     }
 
+    /// Creates a move from the SAN string `s` if `b` is the positon preceding this move
+    ///
+    /// The returned move is guaranteed to be **legal**.
+    #[inline]
     pub fn from_san(s: &str, b: &Board) -> Result<Move, san::ParseError> {
         Ok(san::Move::from_str(s)?.into_move(b)?)
     }
 
+    /// Validates whether this move is semilegal from position `b`
     #[inline]
     pub fn semi_validate(&self, b: &Board) -> Result<(), ValidateError> {
         semi_validate(b, *self)
     }
 
+    /// Validates whether this move is legal from position `b`
     #[inline]
     pub fn validate(&self, b: &Board) -> Result<(), ValidateError> {
         validate(b, *self)
     }
 
+    /// Creates a new non-null move from its raw parts and validates it for well-formedness
     pub fn new(kind: MoveKind, src: Coord, dst: Coord, side: Color) -> Result<Move, CreateError> {
         let mv = Move {
             kind,
@@ -202,6 +305,10 @@ impl Move {
             .ok_or(CreateError::NotWellFormed)
     }
 
+    /// Returns `true` if the move is well-formed
+    ///
+    /// If the move is not well-formed, you can only call getters and this function on it, other uses
+    /// are undefined behaviour.
     pub fn is_well_formed(&self) -> bool {
         // `side` can be `None` only if it's null move
         if self.side.is_none() && self.kind != MoveKind::Null {
@@ -286,34 +393,66 @@ impl Move {
         true
     }
 
+    /// Returns the move kind
     #[inline]
     pub const fn kind(&self) -> MoveKind {
         self.kind
     }
 
+    /// Returns the move source square
+    ///
+    /// For null move, this function returns a square with index 0.
     #[inline]
     pub const fn src(&self) -> Coord {
         self.src
     }
 
+    /// Returns the move destination square
+    ///
+    /// For null move, this function returns a square with index 0.
     #[inline]
     pub const fn dst(&self) -> Coord {
         self.dst
     }
 
+    /// Returns the side which makes this move
     #[inline]
     pub const fn side(&self) -> Option<Color> {
         self.side
     }
 
+    /// Converts this move into a parsed UCI representation
+    #[inline]
     pub fn uci(&self) -> uci::Move {
         (*self).into()
     }
 
+    /// Converts this move into a parsed SAN representation in given position `b`
+    ///
+    /// This function returns an error if the move is not legal in the given position.
+    #[inline]
     pub fn san(&self, b: &Board) -> Result<san::Move, ValidateError> {
         san::Move::from_move(*self, b)
     }
 
+    /// Returns the wrapper which helps to format the move with the given style `style`
+    ///
+    /// The resulting wrapper implements [`fmt::Display`], so can be used with
+    /// `write!()`, `println!()`, or `ToString::to_string`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use owlchess::{Move, Board, MoveKind, File, Rank, Coord, Color, moves::Style};
+    /// #
+    /// let b = Board::initial();
+    /// let g1 = Coord::from_parts(File::G, Rank::R1);
+    /// let f3 = Coord::from_parts(File::F, Rank::R3);
+    /// let mv = Move::new(MoveKind::Simple, g1, f3, Color::White).unwrap();
+    /// assert_eq!(mv.styled(&b, Style::Uci).unwrap().to_string(), "g1f3".to_string());
+    /// assert_eq!(mv.styled(&b, Style::San).unwrap().to_string(), "Nf3".to_string());
+    /// assert_eq!(mv.styled(&b, Style::SanUtf8).unwrap().to_string(), "♘f3".to_string());
+    /// ```
     pub fn styled(&self, b: &Board, style: Style) -> Result<StyledMove, ValidateError> {
         match style {
             Style::Uci => Ok(StyledMove(Styled::Uci((*self).into()))),
@@ -337,6 +476,7 @@ impl Default for Move {
 }
 
 impl fmt::Display for Move {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         self.uci().fmt(f)
     }
@@ -347,6 +487,9 @@ enum Styled {
     San(san::Move, san::Style),
 }
 
+/// Wrapped to format the move with the given style
+///
+/// See [`Move::styled()`] doc for details.
 pub struct StyledMove(Styled);
 
 impl fmt::Display for StyledMove {
@@ -358,6 +501,7 @@ impl fmt::Display for StyledMove {
     }
 }
 
+/// Metadata necessary to undo the applied move
 #[derive(Debug, Copy, Clone)]
 pub struct RawUndo {
     hash: u64,
@@ -538,7 +682,7 @@ fn do_make_move<C: generic::Color>(b: &mut Board, mv: Move) -> RawUndo {
         | MoveKind::PromoteBishop
         | MoveKind::PromoteRook
         | MoveKind::PromoteQueen => {
-            let promote = Cell::from_parts(C::COLOR, mv.kind.promote().unwrap().piece());
+            let promote = Cell::from_parts(C::COLOR, mv.kind.promote().unwrap());
             let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
             b.r.put(mv.src, Cell::EMPTY);
             b.r.put(mv.dst, promote);
@@ -642,6 +786,20 @@ fn do_unmake_move<C: generic::Color>(b: &mut Board, mv: Move, u: RawUndo) {
     b.all = b.white | b.black;
 }
 
+/// Makes the move `mv` on the board `b`
+///
+/// To allow unmaking the move, a `RawUndo` instance is returned. See [`unmake_move_unchecked()`] for the
+/// details on how to unmake a move.
+///
+/// # Safety
+///
+/// The move must be either semilegal or null, otherwise the behavior is undefined.
+///
+/// If the king is under attack after the move (i.e. the board becomes invalid), it must be immediately
+/// rolled back via [`unmake_move_unchecked()`]. Doing anything other with the board before that,
+/// except unmaking the move or calling [`Board::is_opponent_king_attacked()`] is undefined behavior.
+///
+/// See docs for [`Board`] for more details.
 pub unsafe fn make_move_unchecked(b: &mut Board, mv: Move) -> RawUndo {
     match b.r.side {
         Color::White => do_make_move::<generic::White>(b, mv),
@@ -649,6 +807,17 @@ pub unsafe fn make_move_unchecked(b: &mut Board, mv: Move) -> RawUndo {
     }
 }
 
+/// Unmakes the move `mv` on the board `b`
+///
+/// If there exists a valid position `b_old` such that `make_move_unchecked(&mut b_old, mv)`
+/// doesn't result in undefined behavior, returns a value equal to `u`, and `b_old == b` holds
+/// after such operation, then this `b_old` is returned. Otherwise, the behavior is undefined.
+///
+/// In simpler words, you may invoke this function only from the position occured after the
+/// corresponing call to [`make_move_unchecked()`] or [`try_make_move_unchecked()`].
+///
+/// Note that `b` can be an invalid position, so you can roll back an illegal move. See docs for
+/// [`Board`] or [`make_move_unchecked()`] for more details.
 pub unsafe fn unmake_move_unchecked(b: &mut Board, mv: Move, u: RawUndo) {
     match b.r.side {
         Color::White => do_unmake_move::<generic::Black>(b, mv, u),
@@ -656,6 +825,18 @@ pub unsafe fn unmake_move_unchecked(b: &mut Board, mv: Move, u: RawUndo) {
     }
 }
 
+/// Makes the move `mv` on the board `b`
+///
+/// If the move is not legal, an error is returned. However, if `mv` is a null move, then an
+/// error is returned if and only if the king is in check. In case of error, the board remains
+/// unchanged.
+///
+/// To allow unmaking the move, a `RawUndo` instance is returned. See [`unmake_move_unchecked()`] for the
+/// details on how to unmake a move.
+///
+/// # Safety
+///
+/// The move must be either semilegal or null, otherwise the behavior is undefined.
 pub unsafe fn try_make_move_unchecked(b: &mut Board, mv: Move) -> Result<RawUndo, ValidateError> {
     let u = make_move_unchecked(b, mv);
     if b.is_opponent_king_attacked() {
@@ -740,6 +921,7 @@ fn do_is_move_semilegal<C: generic::Color>(b: &Board, mv: Move) -> bool {
     }
 }
 
+/// Returns `true` if the move is semilegal
 pub fn is_move_semilegal(b: &Board, mv: Move) -> bool {
     match b.r.side {
         Color::White => do_is_move_semilegal::<generic::White>(b, mv),
@@ -747,12 +929,18 @@ pub fn is_move_semilegal(b: &Board, mv: Move) -> bool {
     }
 }
 
+/// Returns `true` if the move is legal
+///
+/// # Safety
+///
+/// The move must be semilegal, otherwise the behavior is undefined.
 pub unsafe fn is_move_legal_unchecked(b: &Board, mv: Move) -> bool {
     let mut b_copy = b.clone();
     let _ = make_move_unchecked(&mut b_copy, mv);
     !b_copy.is_opponent_king_attacked()
 }
 
+/// Validates whether move `mv` is semilegal from position `b`
 #[inline]
 pub fn semi_validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
     if !is_move_semilegal(b, mv) {
@@ -761,6 +949,7 @@ pub fn semi_validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
     Ok(())
 }
 
+/// Validates whether move `mv` is legal from position `b`
 #[inline]
 pub fn validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
     semi_validate(b, mv)?;
@@ -770,6 +959,9 @@ pub fn validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
     }
 }
 
+/// Makes the move `mv` on the position `b` and returns the new position after making this move
+///
+/// If the move is not legal, an error is returned.
 pub fn make_move(b: &Board, mv: Move) -> Result<Board, ValidateError> {
     semi_validate(b, mv)?;
     let mut b_copy = b.clone();
