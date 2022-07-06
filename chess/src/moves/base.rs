@@ -468,13 +468,6 @@ impl Move {
     }
 }
 
-impl Default for Move {
-    #[inline]
-    fn default() -> Self {
-        Move::NULL
-    }
-}
-
 impl fmt::Display for Move {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
