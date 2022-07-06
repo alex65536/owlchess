@@ -802,6 +802,8 @@ pub unsafe fn make_move_unchecked(b: &mut Board, mv: Move) -> RawUndo {
 
 /// Unmakes the move `mv` on the board `b`
 ///
+/// # Safety
+///
 /// If there exists a valid position `b_old` such that `make_move_unchecked(&mut b_old, mv)`
 /// doesn't result in undefined behavior, returns a value equal to `u`, and `b_old == b` holds
 /// after such operation, then this `b_old` is returned. Otherwise, the behavior is undefined.

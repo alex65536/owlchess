@@ -500,9 +500,7 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
         let pawns =
             self.board.piece2(C::COLOR, Piece::Pawn) & pawn_mask & bitboard_consts::file(src);
         let allowed = self.board.color(C::COLOR.inv());
-        let kind = promote
-            .map(MoveKind::from)
-            .unwrap_or(MoveKind::PawnSimple);
+        let kind = promote.map(MoveKind::from).unwrap_or(MoveKind::PawnSimple);
         if src.index() == dst.index() + 1 {
             let left_delta = geometry::pawn_left_delta(C::COLOR);
             for dst in pawns::advance_left(C::COLOR, pawns) & allowed {
