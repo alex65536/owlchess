@@ -50,9 +50,9 @@ pub enum PromotePiece {
 /// Move output style
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Style {
-    /// Output in SAN format, with Latin letters for pieces
+    /// Output in SAN format, with capical Latin letters for pieces
     San,
-    /// Output in SAN format, with UTF-8 letters for pieces
+    /// Output in SAN format, with Unicode chess symbols for pieces
     SanUtf8,
     /// Output in UCI format
     Uci,
@@ -487,7 +487,7 @@ enum Styled {
     San(san::Move, san::Style),
 }
 
-/// Wrapped to format the move with the given style
+/// Wrapper to format the move with the given style
 ///
 /// See [`Move::styled()`] doc for details.
 pub struct StyledMove(Styled);

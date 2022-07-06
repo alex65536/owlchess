@@ -1,3 +1,5 @@
+//! Utilities to work with moves in SAN format
+
 use super::base::{self, CreateError, MoveKind, PromotePiece, ValidateError};
 use super::uci;
 use crate::bitboard::Bitboard;
@@ -12,47 +14,73 @@ use std::str::{self, FromStr};
 
 use thiserror::Error;
 
+/// Error parsing SAN representation from string
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum RawParseError {
+    /// String is empty
     #[error("string is empty")]
     EmptyString,
+    /// Destination cell is invalid
     #[error("invalid destination cell")]
     InvalidDst(#[from] CoordParseError),
-    #[error("simple move too long")]
-    SimpleMoveTooLong,
+    /// Extra bytes in non-pawn move
+    #[error("non-pawn move too long")]
+    NonPawnMoveTooLong,
+    /// String for pawn move is too short
     #[error("pawn move too short")]
     PawnMoveTooShort,
+    /// Extra bytes in pawn move
     #[error("pawn move too long")]
     PawnMoveTooLong,
+    /// Parsing failed for unspecified reasons
     #[error("syntax error")]
     Syntax,
 }
 
+/// Error converting SAN move into [`moves::Move`](super::Move)
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum IntoMoveError {
+    /// Resulting move is not well-formed
+    ///
+    /// Note that, when the move is not well-formed, you can also get [`IntoMoveError::NotFound`] error.
     #[error("cannot create move: {0}")]
     Create(#[from] CreateError),
+    /// Resulting mvoe is not legal
+    ///
+    /// Note that, when the move is not legal, you can also get [`IntoMoveError::NotFound`] error.
     #[error("invalid move: {0}")]
     Validate(#[from] ValidateError),
-    #[error("expected capture")]
+    /// Capture sign is put when the move is non-capture
+    #[error("got capture sign on a non-capture move")]
     CaptureExpected,
-    #[error("move not found")]
+    /// Cannot find a corresponding legal move described by the given SAN string
+    #[error("no such move")]
     NotFound,
+    /// The description given by SAN string is ambiguous
     #[error("ambiguous move (candidates are at least `{0}` and `{1}`)")]
     Ambiguity(base::Move, base::Move),
 }
 
+/// Error parsing [`moves::Move`](super::Move) from SAN string
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum ParseError {
+    /// Cannot parse SAN string
     #[error("cannot parse move: {0}")]
     Parse(#[from] RawParseError),
+    /// Cannot convert a parsed string into a legal move
     #[error("cannot convert move: {0}")]
     Convert(#[from] IntoMoveError),
 }
 
+/// Style for formatiing SAN moves
+///
+/// Note that the style can be used only for _formatting_. Move parser only accepts
+/// ASCII characters as piece names and doesn't accept Unicode pieces,
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Style {
+    /// Use capical Latin letters for pieces
     Algebraic,
+    /// Use Unicode chess symbols for pieces
     Utf8,
 }
 
@@ -112,34 +140,52 @@ impl PieceTheme for AlgebraicTheme {
     }
 }
 
+/// Parsed SAN string, without check indicator
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Data {
+    /// Move in UCI format
     Uci(uci::Move),
+    /// Castling
     Castling(CastlingSide),
+    /// Simple pawn move
     PawnMove {
+        /// Destination square
         dst: Coord,
+        /// Piece to promote, if any
         promote: Option<PromotePiece>,
     },
+    /// Pawn capture
     PawnCapture {
+        /// Source file
         src: File,
+        /// Destination square
         dst: Coord,
+        /// Piece to promote, if any
         promote: Option<PromotePiece>,
     },
+    /// Simplified pawn capture (like `cd`, `fe`, etc.)
     PawnCaptureShort {
+        /// Source file
         src: File,
+        /// Destination file
         dst: File,
+        /// Piece to promote, if any
         promote: Option<PromotePiece>,
     },
+    /// Non-pawn move
     Simple {
+        /// Piece to move
         piece: Piece,
+        /// Source file, if specified
         file: Option<File>,
+        /// Source rank, if specified
         rank: Option<Rank>,
+        /// Is the move capture?
         is_capture: bool,
+        /// Destination square
         dst: Coord,
     },
 }
-
-pub struct StyledData<'a>(&'a Data, Style);
 
 struct PromoteFmt<T: PieceTheme>(Option<PromotePiece>, PhantomData<T>);
 
@@ -249,11 +295,15 @@ impl MovePush for AmbigSearcher {
 }
 
 impl Data {
+    /// Returns the wrapper which helps to format the move with the given style `style`
+    ///
+    /// See [`Move::styled()`] doc for details.
     #[inline]
     pub fn styled(&self, style: Style) -> StyledData<'_> {
         StyledData(self, style)
     }
 
+    /// Creates the parsed SAN from move `mv` in position `b`
     pub fn from_move(mv: base::Move, b: &Board) -> Data {
         match mv.kind() {
             MoveKind::Null => Data::Uci(uci::Move::Null),
@@ -303,6 +353,7 @@ impl Data {
         }
     }
 
+    /// Converts the parsed SAN into [`moves::Move`](super::Move) in the position `b`
     pub fn into_move(self, b: &Board) -> Result<base::Move, IntoMoveError> {
         match self {
             Self::Uci(uci) => {
@@ -493,7 +544,7 @@ impl FromStr for Data {
                 _ => (false, bytes),
             };
             if !bytes.is_empty() {
-                return Err(RawParseError::SimpleMoveTooLong);
+                return Err(RawParseError::NonPawnMoveTooLong);
             }
             return Ok(Data::Simple {
                 piece,
@@ -554,22 +605,46 @@ impl FromStr for Data {
     }
 }
 
+/// Check indication
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum CheckMark {
+    /// Check (a.k.a. "+")
     Single,
+    /// Double check (a.k.a "++")
+    ///
+    /// Not set while converting the move into SAN and is used primarily for parsing.
     Double,
+    /// Checkmate (a.k.a "#")
     Checkmate,
 }
 
+/// Parsed SAN move with a [`CheckMark`]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Move {
+    /// Data without check mark
     pub data: Data,
+    /// Check mark, if any
     pub check: Option<CheckMark>,
 }
 
+/// Wrapper to format [`Data`] with the given style
+///
+/// See [`Move::styled()`] doc for details.
+pub struct StyledData<'a>(&'a Data, Style);
+
+/// Wrapper to format [`Move`] with the given style
+///
+/// See [`Move::styled()`] doc for details.
 pub struct StyledMove<'a>(&'a Move, Style);
 
 impl Move {
+    /// Returns the wrapper which helps to format the move with the given style `style`
+    ///
+    /// The resulting wrapper implements [`fmt::Display`], so can be used with
+    /// `write!()`, `println!()`, or `ToString::to_string`.
+    ///
+    /// The usage is similar to [`RawBoard::pretty()`](crate::RawBoard::pretty) or
+    /// [`moves::Move::styled()`](super::Move::styled).
     #[inline]
     pub fn styled(&self, style: Style) -> StyledMove<'_> {
         StyledMove(self, style)
@@ -589,6 +664,7 @@ impl Move {
         Ok(())
     }
 
+    /// Creates the parsed SAN from move `mv` in position `b`
     pub fn from_move(mv: base::Move, b: &Board) -> Result<Move, ValidateError> {
         let data = Data::from_move(mv, b);
         let b_copy = base::make_move(b, mv)?;
@@ -604,6 +680,7 @@ impl Move {
         Ok(Move { data, check })
     }
 
+    /// Converts the parsed SAN into [`moves::Move`](super::Move) in the position `b`
     pub fn into_move(self, b: &Board) -> Result<base::Move, IntoMoveError> {
         self.data.into_move(b)
     }

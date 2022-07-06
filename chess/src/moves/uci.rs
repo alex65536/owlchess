@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use thiserror::Error;
 
-/// Error creating a parsed UCI representation from string
+/// Error parsing UCI representation from string
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
 pub enum RawParseError {
     /// Bad string length
