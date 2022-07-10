@@ -14,7 +14,7 @@ fn main() {
     let mut rng = rand::thread_rng();
 
     while !chain.is_finished() {
-        // Generates all the legal moves
+        // Generate all the legal moves
         let moves = legal::gen_all(chain.last());
 
         // Pick random move and push it into chain
