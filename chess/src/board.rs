@@ -556,7 +556,10 @@ impl Board {
         // non-force ones.
         if !self.has_legal_moves() {
             return if self.is_check() {
-                Some(Outcome::Win{side: self.r.side.inv(), reason: WinReason::Checkmate})
+                Some(Outcome::Win {
+                    side: self.r.side.inv(),
+                    reason: WinReason::Checkmate,
+                })
             } else {
                 Some(Outcome::Draw(DrawReason::Stalemate))
             };
@@ -1087,7 +1090,13 @@ mod tests {
         let b = Board::from_fen("rn1q1bnr/ppp1kB1p/3p2p1/3NN3/4P3/8/PPPP1PPP/R1BbK2R b KQ - 2 7")
             .unwrap();
         assert!(!b.has_legal_moves());
-        assert_eq!(b.calc_outcome(), Some(Outcome::Win{side: Color::White, reason: WinReason::Checkmate}));
+        assert_eq!(
+            b.calc_outcome(),
+            Some(Outcome::Win {
+                side: Color::White,
+                reason: WinReason::Checkmate
+            })
+        );
 
         let b = Board::from_fen("7K/8/5n2/5n2/8/8/7k/8 w - - 0 1").unwrap();
         assert!(!b.has_legal_moves());

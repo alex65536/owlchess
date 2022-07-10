@@ -828,7 +828,10 @@ mod tests {
             .push_uci_list("g1f3 b8c6 f3g1 c6b8 g1f3 b8c6 f3g1 c6b8")
             .unwrap();
         assert_eq!(chain.outcome(), &None);
-        assert_eq!(chain.calc_outcome(), Some(Outcome::Draw(DrawReason::Repeat3)));
+        assert_eq!(
+            chain.calc_outcome(),
+            Some(Outcome::Draw(DrawReason::Repeat3))
+        );
 
         let _ = chain.set_auto_outcome(OutcomeFilter::Strict);
         assert_eq!(chain.outcome(), &None);
@@ -837,7 +840,10 @@ mod tests {
             .push_uci_list("g1f3 b8c6 f3g1 c6b8 g1f3 b8c6 f3g1 c6b8")
             .unwrap();
         assert_eq!(chain.outcome(), &None);
-        assert_eq!(chain.calc_outcome(), Some(Outcome::Draw(DrawReason::Repeat5)));
+        assert_eq!(
+            chain.calc_outcome(),
+            Some(Outcome::Draw(DrawReason::Repeat5))
+        );
 
         let _ = chain.set_auto_outcome(OutcomeFilter::Strict);
         assert!(chain.is_finished());
@@ -863,10 +869,19 @@ mod tests {
         chain.push_uci_list("g2g4 e7e5 f2f4 d8h4").unwrap();
         assert_eq!(
             chain.set_auto_outcome(OutcomeFilter::Force),
-            Some(Outcome::Win{side: Color::Black, reason: WinReason::Checkmate}),
+            Some(Outcome::Win {
+                side: Color::Black,
+                reason: WinReason::Checkmate
+            }),
         );
         assert!(chain.is_finished());
-        assert_eq!(chain.outcome(), &Some(Outcome::Win{side: Color::Black, reason: WinReason::Checkmate}));
+        assert_eq!(
+            chain.outcome(),
+            &Some(Outcome::Win {
+                side: Color::Black,
+                reason: WinReason::Checkmate
+            })
+        );
 
         assert_eq!(
             chain

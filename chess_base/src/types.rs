@@ -995,7 +995,7 @@ impl Outcome {
     #[inline]
     pub fn winner(&self) -> Option<Color> {
         match self {
-            Self::Win{side, ..} => Some(*side),
+            Self::Win { side, .. } => Some(*side),
             Self::Draw(_) => None,
         }
     }
@@ -1007,8 +1007,10 @@ impl Outcome {
     pub fn is_force(&self) -> bool {
         matches!(
             *self,
-            Self::Win{reason: WinReason::Checkmate, ..}
-                | Self::Draw(DrawReason::Stalemate)
+            Self::Win {
+                reason: WinReason::Checkmate,
+                ..
+            } | Self::Draw(DrawReason::Stalemate)
         )
     }
 
@@ -1041,12 +1043,18 @@ impl fmt::Display for Outcome {
             Self::Draw(reason) => reason.fmt(f),
             Self::Win { side, reason } => match reason {
                 WinReason::Checkmate => write!(f, "{} checkmates", side.as_long_str()),
-                WinReason::TimeForfeit => write!(f, "{} forfeits on time", side.inv().as_long_str()),
-                WinReason::InvalidMove => write!(f, "{} made an invalid move", side.inv().as_long_str()),
-                WinReason::EngineError => write!(f, "{} is a buggy chess engine", side.inv().as_long_str()),
+                WinReason::TimeForfeit => {
+                    write!(f, "{} forfeits on time", side.inv().as_long_str())
+                }
+                WinReason::InvalidMove => {
+                    write!(f, "{} made an invalid move", side.inv().as_long_str())
+                }
+                WinReason::EngineError => {
+                    write!(f, "{} is a buggy chess engine", side.inv().as_long_str())
+                }
                 WinReason::Resign => write!(f, "{} resigns", side.inv().as_long_str()),
                 WinReason::Unknown => write!(f, "{} wins by unknown reason", side.as_long_str()),
-            }
+            },
         }
     }
 }
@@ -1072,8 +1080,12 @@ impl From<Option<Outcome>> for GameStatus {
     #[inline]
     fn from(src: Option<Outcome>) -> Self {
         match src {
-            Some(Outcome::Win{side: Color::White, ..}) => Self::White,
-            Some(Outcome::Win{side: Color::Black, ..}) => Self::Black,
+            Some(Outcome::Win {
+                side: Color::White, ..
+            }) => Self::White,
+            Some(Outcome::Win {
+                side: Color::Black, ..
+            }) => Self::Black,
             Some(Outcome::Draw(_)) => Self::Draw,
             None => Self::Running,
         }

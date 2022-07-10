@@ -5,7 +5,7 @@ use owlchess::{
     chain::{GameStatusPolicy, NumberPolicy},
     moves::Style,
     types::OutcomeFilter,
-    Color, Move, MoveChain, GameStatus,
+    Color, GameStatus, Move, MoveChain,
 };
 use std::io::{self, BufRead, Write};
 
