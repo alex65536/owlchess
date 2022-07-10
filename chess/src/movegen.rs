@@ -633,6 +633,10 @@ pub mod semilegal {
 ///
 /// Legal moves are the moves fully allowed by chess rules. Use this generator instead of the
 /// [semilegal one](semilegal) if you want all the moves to be validated for legality beforehands.
+///
+/// Currently, legal move generator is implemented just like the semilegal one, but it makes and
+/// unmakes each generated move to verify its legality. So, using the semilegal move generator can
+/// be sometimes much faster.
 pub mod legal {
     use super::MoveList;
     use crate::board::Board;
