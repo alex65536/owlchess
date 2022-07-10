@@ -526,6 +526,15 @@ impl Color {
             _ => None,
         }
     }
+
+    /// Returns a full string representation of the color (either `"white"` or `"black"`)
+    #[inline]
+    pub fn as_long_str(&self) -> &'static str {
+        match *self {
+            Color::White => "white",
+            Color::Black => "black",
+        }
+    }
 }
 
 impl fmt::Display for Color {
@@ -881,9 +890,9 @@ impl FromStr for CastlingRights {
     }
 }
 
-/// Kind of draw outcome
+/// Reason for game finish with draw
 #[derive(Debug, Display, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum DrawKind {
+pub enum DrawReason {
     /// Draw by stalemate
     #[display(fmt = "stalemate")]
     Stalemate,
@@ -919,9 +928,9 @@ pub enum DrawKind {
     Unknown,
 }
 
-/// Kind of win outcome
+/// Reason for game finish with win
 #[derive(Debug, Display, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum WinKind {
+pub enum WinReason {
     /// Game ends with checkmate
     #[display(fmt = "checkmate")]
     Checkmate,
@@ -935,7 +944,7 @@ pub enum WinKind {
     #[display(fmt = "chess engine error")]
     EngineError,
     /// Opponent resigns
-    #[display(fmt = "opponent resigned")]
+    #[display(fmt = "opponent resigns")]
     Resign,
     /// Reason is unknown
     #[display(fmt = "unknown reason")]
@@ -943,17 +952,17 @@ pub enum WinKind {
 }
 
 /// Outcome of the finished game
-#[derive(Debug, Display, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Outcome {
-    /// White wins
-    #[display(fmt = "1-0 ({})", _0)]
-    White(WinKind),
-    /// Black wins
-    #[display(fmt = "0-1 ({})", _0)]
-    Black(WinKind),
+    /// Win (either by White or by Black)
+    Win {
+        /// Winning side
+        side: Color,
+        /// Reason
+        reason: WinReason,
+    },
     /// Draw
-    #[display(fmt = "1/2-1/2 ({})", _0)]
-    Draw(DrawKind),
+    Draw(DrawReason),
 }
 
 /// Filter to group various types of outcomes
@@ -986,18 +995,8 @@ impl Outcome {
     #[inline]
     pub fn winner(&self) -> Option<Color> {
         match self {
-            Self::White(_) => Some(Color::White),
-            Self::Black(_) => Some(Color::Black),
+            Self::Win{side, ..} => Some(*side),
             Self::Draw(_) => None,
-        }
-    }
-
-    /// Creates the outcome where `color` wins with reason `kind`
-    #[inline]
-    pub fn win(color: Color, kind: WinKind) -> Outcome {
-        match color {
-            Color::White => Self::White(kind),
-            Color::Black => Self::Black(kind),
         }
     }
 
@@ -1008,9 +1007,8 @@ impl Outcome {
     pub fn is_force(&self) -> bool {
         matches!(
             *self,
-            Self::White(WinKind::Checkmate)
-                | Self::Black(WinKind::Checkmate)
-                | Self::Draw(DrawKind::Stalemate)
+            Self::Win{reason: WinReason::Checkmate, ..}
+                | Self::Draw(DrawReason::Stalemate)
         )
     }
 
@@ -1025,13 +1023,15 @@ impl Outcome {
         if matches!(filter, OutcomeFilter::Strict | OutcomeFilter::Relaxed)
             && matches!(
                 *self,
-                Self::Draw(DrawKind::InsufficientMaterial | DrawKind::Moves75 | DrawKind::Repeat5)
+                Self::Draw(
+                    DrawReason::InsufficientMaterial | DrawReason::Moves75 | DrawReason::Repeat5
+                )
             )
         {
             return true;
         }
         matches!(filter, OutcomeFilter::Relaxed)
-            && matches!(*self, Self::Draw(DrawKind::Moves50 | DrawKind::Repeat3))
+            && matches!(*self, Self::Draw(DrawReason::Moves50 | DrawReason::Repeat3))
     }
 }
 
@@ -1056,8 +1056,8 @@ impl From<Option<Outcome>> for GameStatus {
     #[inline]
     fn from(src: Option<Outcome>) -> Self {
         match src {
-            Some(Outcome::White(_)) => Self::White,
-            Some(Outcome::Black(_)) => Self::Black,
+            Some(Outcome::Win{side: Color::White, ..}) => Self::White,
+            Some(Outcome::Win{side: Color::Black, ..}) => Self::Black,
             Some(Outcome::Draw(_)) => Self::Draw,
             None => Self::Running,
         }

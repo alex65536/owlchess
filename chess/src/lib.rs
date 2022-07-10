@@ -62,6 +62,6 @@ pub use chain::MoveChain;
 pub use movegen::{MoveList, MovePush};
 pub use moves::{Move, MoveKind};
 pub use types::{
-    CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, GameStatus, Outcome, Piece,
-    Rank, WinKind,
+    CastlingRights, CastlingSide, Cell, Color, Coord, DrawReason, File, GameStatus, Outcome, Piece,
+    Rank, WinReason,
 };

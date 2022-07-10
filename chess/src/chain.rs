@@ -39,7 +39,7 @@
 
 use crate::board::{self, Board, RawBoard};
 use crate::moves::{self, san, uci, Move, RawUndo, ValidateError};
-use crate::types::{Color, DrawKind, GameStatus, Outcome, OutcomeFilter};
+use crate::types::{Color, DrawReason, GameStatus, Outcome, OutcomeFilter};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -266,10 +266,10 @@ impl<R: Repeat> BaseMoveChain<R> {
         // repetitions.
         //
         // Next, all the strict outcomes must be checked before the non-strict ones.
-        // For example, if there is both `DrawKind::Moves50` and `DrawKind::Repeat5`,
+        // For example, if there is both `DrawReason::Moves50` and `DrawReason::Repeat5`,
         // the latter must be preferred, as it's strict. Still, we have no priority
-        // between `DrawKind::Moves75` and `DrawKind::Repeat5` or between
-        // `DrawKind::Moves50` and `DrawKind::Repeat3`.
+        // between `DrawReason::Moves75` and `DrawReason::Repeat5` or between
+        // `DrawReason::Moves50` and `DrawReason::Repeat3`.
         //
         // So, we can do the following:
         // - first, call `Board::calc_outcome()` and check for strict outcomes
@@ -285,10 +285,10 @@ impl<R: Repeat> BaseMoveChain<R> {
 
         let rep = self.repeat.count(&self.board);
         if rep >= 5 {
-            return Some(Outcome::Draw(DrawKind::Repeat5));
+            return Some(Outcome::Draw(DrawReason::Repeat5));
         }
         if rep >= 3 {
-            return Some(Outcome::Draw(DrawKind::Repeat3));
+            return Some(Outcome::Draw(DrawReason::Repeat3));
         }
 
         outcome
@@ -748,7 +748,7 @@ impl<'a, R: Repeat> fmt::Display for StyledList<'a, R> {
 mod tests {
     use super::*;
     use crate::board::Board;
-    use crate::types::{DrawKind, Outcome, OutcomeFilter, WinKind};
+    use crate::types::{DrawReason, Outcome, OutcomeFilter, WinReason};
 
     #[test]
     fn test_simple() {
@@ -828,7 +828,7 @@ mod tests {
             .push_uci_list("g1f3 b8c6 f3g1 c6b8 g1f3 b8c6 f3g1 c6b8")
             .unwrap();
         assert_eq!(chain.outcome(), &None);
-        assert_eq!(chain.calc_outcome(), Some(Outcome::Draw(DrawKind::Repeat3)));
+        assert_eq!(chain.calc_outcome(), Some(Outcome::Draw(DrawReason::Repeat3)));
 
         let _ = chain.set_auto_outcome(OutcomeFilter::Strict);
         assert_eq!(chain.outcome(), &None);
@@ -837,11 +837,11 @@ mod tests {
             .push_uci_list("g1f3 b8c6 f3g1 c6b8 g1f3 b8c6 f3g1 c6b8")
             .unwrap();
         assert_eq!(chain.outcome(), &None);
-        assert_eq!(chain.calc_outcome(), Some(Outcome::Draw(DrawKind::Repeat5)));
+        assert_eq!(chain.calc_outcome(), Some(Outcome::Draw(DrawReason::Repeat5)));
 
         let _ = chain.set_auto_outcome(OutcomeFilter::Strict);
         assert!(chain.is_finished());
-        assert_eq!(chain.outcome(), &Some(Outcome::Draw(DrawKind::Repeat5)));
+        assert_eq!(chain.outcome(), &Some(Outcome::Draw(DrawReason::Repeat5)));
 
         chain.pop().unwrap();
         assert!(!chain.is_finished());
@@ -849,7 +849,7 @@ mod tests {
 
         chain.set_auto_outcome(OutcomeFilter::Relaxed);
         assert!(chain.is_finished());
-        assert_eq!(chain.outcome(), &Some(Outcome::Draw(DrawKind::Repeat3)));
+        assert_eq!(chain.outcome(), &Some(Outcome::Draw(DrawReason::Repeat3)));
 
         assert_eq!(
             chain.uci().to_string(),
@@ -863,10 +863,10 @@ mod tests {
         chain.push_uci_list("g2g4 e7e5 f2f4 d8h4").unwrap();
         assert_eq!(
             chain.set_auto_outcome(OutcomeFilter::Force),
-            Some(Outcome::Black(WinKind::Checkmate)),
+            Some(Outcome::Win{side: Color::Black, reason: WinReason::Checkmate}),
         );
         assert!(chain.is_finished());
-        assert_eq!(chain.outcome(), &Some(Outcome::Black(WinKind::Checkmate)));
+        assert_eq!(chain.outcome(), &Some(Outcome::Win{side: Color::Black, reason: WinReason::Checkmate}));
 
         assert_eq!(
             chain
@@ -1104,7 +1104,7 @@ mod tests {
 
         let mut chain =
             MoveChain::from_uci_list(Board::initial(), "e2e4 e7e5 g1f3 d7d6 f1b5").unwrap();
-        chain.set_outcome(Outcome::Draw(DrawKind::Agreement));
+        chain.set_outcome(Outcome::Draw(DrawReason::Agreement));
         assert_eq!(
             chain
                 .styled(

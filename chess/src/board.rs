@@ -3,8 +3,8 @@
 use crate::bitboard::Bitboard;
 use crate::moves::{self, Move};
 use crate::types::{
-    self, CastlingRights, CastlingSide, Cell, Color, Coord, DrawKind, File, Outcome, Piece, Rank,
-    WinKind,
+    self, CastlingRights, CastlingSide, Cell, Color, Coord, DrawReason, File, Outcome, Piece, Rank,
+    WinReason,
 };
 use crate::{bitboard_consts, geometry, movegen, zobrist};
 
@@ -556,9 +556,9 @@ impl Board {
         // non-force ones.
         if !self.has_legal_moves() {
             return if self.is_check() {
-                Some(Outcome::win(self.r.side.inv(), WinKind::Checkmate))
+                Some(Outcome::Win{side: self.r.side.inv(), reason: WinReason::Checkmate})
             } else {
-                Some(Outcome::Draw(DrawKind::Stalemate))
+                Some(Outcome::Draw(DrawReason::Stalemate))
             };
         }
 
@@ -574,19 +574,19 @@ impl Board {
     ///
     /// For the details about outcome priority, see docs for [`Board::calc_outcome()`]
     #[inline]
-    pub fn calc_draw_simple(&self) -> Option<DrawKind> {
+    pub fn calc_draw_simple(&self) -> Option<DrawReason> {
         // Check for insufficient material
         if self.is_insufficient_material() {
-            return Some(DrawKind::InsufficientMaterial);
+            return Some(DrawReason::InsufficientMaterial);
         }
 
         // Check for 50/75 move rule. Note that check for 50 move rule must
         // come after all other ones, because it is non-strict.
         if self.r.move_counter >= 150 {
-            return Some(DrawKind::Moves75);
+            return Some(DrawReason::Moves75);
         }
         if self.r.move_counter >= 100 {
-            return Some(DrawKind::Moves50);
+            return Some(DrawReason::Moves50);
         }
 
         None
@@ -976,7 +976,7 @@ impl<'a> Display for Pretty<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{DrawKind, Outcome, WinKind};
+    use crate::types::{DrawReason, Outcome, WinReason};
     use std::mem;
 
     #[test]
@@ -1087,28 +1087,28 @@ mod tests {
         let b = Board::from_fen("rn1q1bnr/ppp1kB1p/3p2p1/3NN3/4P3/8/PPPP1PPP/R1BbK2R b KQ - 2 7")
             .unwrap();
         assert!(!b.has_legal_moves());
-        assert_eq!(b.calc_outcome(), Some(Outcome::White(WinKind::Checkmate)));
+        assert_eq!(b.calc_outcome(), Some(Outcome::Win{side: Color::White, reason: WinReason::Checkmate}));
 
         let b = Board::from_fen("7K/8/5n2/5n2/8/8/7k/8 w - - 0 1").unwrap();
         assert!(!b.has_legal_moves());
-        assert_eq!(b.calc_outcome(), Some(Outcome::Draw(DrawKind::Stalemate)));
+        assert_eq!(b.calc_outcome(), Some(Outcome::Draw(DrawReason::Stalemate)));
 
         let b = Board::from_fen("7K/8/5n2/8/8/8/7k/8 w - - 0 1").unwrap();
         assert_eq!(
             b.calc_outcome(),
-            Some(Outcome::Draw(DrawKind::InsufficientMaterial))
+            Some(Outcome::Draw(DrawReason::InsufficientMaterial))
         );
 
         let b = Board::from_fen("7K/8/5b2/8/8/8/7k/8 w - - 0 1").unwrap();
         assert_eq!(
             b.calc_outcome(),
-            Some(Outcome::Draw(DrawKind::InsufficientMaterial))
+            Some(Outcome::Draw(DrawReason::InsufficientMaterial))
         );
 
         let b = Board::from_fen("2K4k/8/8/8/B1B5/1B1B4/B1B5/1B1B4 w - - 0 1").unwrap();
         assert_eq!(
             b.calc_outcome(),
-            Some(Outcome::Draw(DrawKind::InsufficientMaterial))
+            Some(Outcome::Draw(DrawReason::InsufficientMaterial))
         );
 
         let b = Board::from_fen("BBK4k/8/8/8/8/8/8/8 w - - 0 1").unwrap();
@@ -1121,9 +1121,9 @@ mod tests {
         assert_eq!(b.calc_outcome(), None);
 
         let b = Board::from_fen("NNK4k/8/8/8/8/8/8/8 w - - 100 80").unwrap();
-        assert_eq!(b.calc_outcome(), Some(Outcome::Draw(DrawKind::Moves50)));
+        assert_eq!(b.calc_outcome(), Some(Outcome::Draw(DrawReason::Moves50)));
 
         let b = Board::from_fen("NNK4k/8/8/8/8/8/8/8 w - - 150 90").unwrap();
-        assert_eq!(b.calc_outcome(), Some(Outcome::Draw(DrawKind::Moves75)));
+        assert_eq!(b.calc_outcome(), Some(Outcome::Draw(DrawReason::Moves75)));
     }
 }
