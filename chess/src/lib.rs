@@ -14,8 +14,8 @@
 //! - generate moves
 //! - make moves
 //! - calculate game outcome
-//! - parse and format FEN (for boards)
-//! - parse and format UCI and SAN (for moves)
+//! - parse and format boards in [FEN](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation)
+//! - parse and format moves in UCI and [SAN](https://en.wikipedia.org/wiki/Algebraic_notation_\(chess\))
 //!
 //! ## Example
 //!
