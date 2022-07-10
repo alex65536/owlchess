@@ -924,7 +924,7 @@ pub enum DrawReason {
     #[display(fmt = "draw by agreement")]
     Agreement,
     /// Reason is unknown
-    #[display(fmt = "unknown reason")]
+    #[display(fmt = "draw by unknown reason")]
     Unknown,
 }
 
@@ -941,7 +941,7 @@ pub enum WinReason {
     #[display(fmt = "opponent made an invalid move")]
     InvalidMove,
     /// Opponent is a chess engine and it either violated the protocol or crashed
-    #[display(fmt = "chess engine error")]
+    #[display(fmt = "opponent is a buggy chess engine")]
     EngineError,
     /// Opponent resigns
     #[display(fmt = "opponent resigns")]
@@ -1032,6 +1032,22 @@ impl Outcome {
         }
         matches!(filter, OutcomeFilter::Relaxed)
             && matches!(*self, Self::Draw(DrawReason::Moves50 | DrawReason::Repeat3))
+    }
+}
+
+impl fmt::Display for Outcome {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Draw(reason) => reason.fmt(f),
+            Self::Win { side, reason } => match reason {
+                WinReason::Checkmate => write!(f, "{} checkmates", side.as_long_str()),
+                WinReason::TimeForfeit => write!(f, "{} forfeits on time", side.inv().as_long_str()),
+                WinReason::InvalidMove => write!(f, "{} made an invalid move", side.inv().as_long_str()),
+                WinReason::EngineError => write!(f, "{} is a buggy chess engine", side.inv().as_long_str()),
+                WinReason::Resign => write!(f, "{} resigns", side.inv().as_long_str()),
+                WinReason::Unknown => write!(f, "{} wins by unknown reason", side.as_long_str()),
+            }
+        }
     }
 }
 
