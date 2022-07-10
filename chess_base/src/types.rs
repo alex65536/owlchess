@@ -1080,6 +1080,20 @@ impl From<Option<Outcome>> for GameStatus {
     }
 }
 
+impl From<Outcome> for GameStatus {
+    #[inline]
+    fn from(src: Outcome) -> Self {
+        Self::from(Some(src))
+    }
+}
+
+impl From<&Outcome> for GameStatus {
+    #[inline]
+    fn from(src: &Outcome) -> Self {
+        Self::from(Some(*src))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
