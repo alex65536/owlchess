@@ -6,6 +6,9 @@
 //! Primarily designed for various chess GUIs and tools, it's also possible to use Owlchess
 //! to build a fast chess engine.
 //!
+//! The code is mostly derived from my chess engine [SoFCheck](https://github.com/alex65536/sofcheck),
+//! but rewritten in Rust with regard to safety.
+//!
 //! This crate supports core chess functionality:
 //!
 //! - generate moves

@@ -16,6 +16,7 @@ fn main() {
 
     loop {
         if let Some(outcome) = chain.outcome() {
+            // Indicate that the game is finished and terminate the game loop
             println!("Game finished: {}, {}", GameStatus::from(outcome), outcome);
             println!("Notation:");
             println!(
@@ -25,19 +26,23 @@ fn main() {
             break;
         }
 
+        // Print the current board
         println!("{}", chain.last().pretty(PrettyStyle::Ascii));
         let side = match chain.last().side() {
             Color::White => "White",
             Color::Black => "Black",
         };
+
+        // Prompt for the next move
         print!("{} move ({}): ", side, chain.last().raw().move_number);
         io::stdout().flush().unwrap();
         let mut s = String::new();
         stdin.read_line(&mut s).unwrap();
         let s = s.trim();
 
-        // Note that we could just call `MoveChain::push_san()` here directly. But we want
-        // to show more features here, so separate parsing a move and making it.
+        // Parse the move. Note that we could just call `MoveChain::push_san()` here
+        // directly. But we want to show more features here, so separate parsing a move
+        // and making it.
         let mv = match Move::from_san(s, chain.last()) {
             Ok(mv) => mv,
             Err(e) => {
