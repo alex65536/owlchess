@@ -1,8 +1,7 @@
 //! Core chess types
 
-use std::fmt::{self, Display};
-use std::hint;
-use std::str::FromStr;
+use derive_more::Display;
+use std::{fmt, hint, str::FromStr};
 use thiserror::Error;
 
 /// Error when parsing [`Coord`] from string
@@ -529,7 +528,7 @@ impl Color {
     }
 }
 
-impl Display for Color {
+impl fmt::Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.as_char())
     }
@@ -883,60 +882,77 @@ impl FromStr for CastlingRights {
 }
 
 /// Kind of draw outcome
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Display, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum DrawKind {
     /// Draw by stalemate
+    #[display(fmt = "stalemate")]
     Stalemate,
     /// Draw by insufficient material
+    #[display(fmt = "insufficient material")]
     InsufficientMaterial,
     /// Draw by 75 moves
     ///
     /// This one is mandatory, in contrast with draw by 50 moves.
+    #[display(fmt = "75 move rule")]
     Moves75,
     /// Draw by five-fold repetition
     ///
     /// This one is mandatory, in contrast with draw by threefold repetition.
+    #[display(fmt = "fivefold repetition")]
     Repeat5,
     /// Draw by 50 moves
     ///
     /// According to FIDE rules, one can claim a draw if no player captures a piece or
     /// makes a pawn move during the last 50 moves, but is not obligated to do so.
+    #[display(fmt = "50 move rule")]
     Moves50,
     /// Draw by threefold repetition
     ///
     /// In case of threefold repetition, one can claim a draw but is not obligated to do so.
+    #[display(fmt = "threefold repetition")]
     Repeat3,
     /// Draw by agreement
+    #[display(fmt = "draw by agreement")]
     Agreement,
     /// Reason is unknown
+    #[display(fmt = "unknown reason")]
     Unknown,
 }
 
 /// Kind of win outcome
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Display, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum WinKind {
     /// Game ends with checkmate
+    #[display(fmt = "checkmate")]
     Checkmate,
     /// Opponent forfeits on time
+    #[display(fmt = "opponent forfeits on time")]
     TimeForfeit,
     /// Opponent made an invalid move
+    #[display(fmt = "opponent made an invalid move")]
     InvalidMove,
     /// Opponent is a chess engine and it either violated the protocol or crashed
+    #[display(fmt = "chess engine error")]
     EngineError,
     /// Opponent resigns
+    #[display(fmt = "opponent resigned")]
     Resign,
     /// Reason is unknown
+    #[display(fmt = "unknown reason")]
     Unknown,
 }
 
 /// Outcome of the finished game
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Display, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Outcome {
     /// White wins
+    #[display(fmt = "1-0 ({})", _0)]
     White(WinKind),
     /// Black wins
+    #[display(fmt = "0-1 ({})", _0)]
     Black(WinKind),
     /// Draw
+    #[display(fmt = "1/2-1/2 ({})", _0)]
     Draw(DrawKind),
 }
 
@@ -1020,15 +1036,19 @@ impl Outcome {
 }
 
 /// Short status of the game (either running of finished)
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Display, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum GameStatus {
     /// White wins
+    #[display(fmt = "1-0")]
     White,
     /// Black wins
+    #[display(fmt = "0-1")]
     Black,
     /// Draw
+    #[display(fmt = "1/2-1/2")]
     Draw,
     /// Game is still running
+    #[display(fmt = "*")]
     Running,
 }
 
@@ -1040,17 +1060,6 @@ impl From<Option<Outcome>> for GameStatus {
             Some(Outcome::Black(_)) => Self::Black,
             Some(Outcome::Draw(_)) => Self::Draw,
             None => Self::Running,
-        }
-    }
-}
-
-impl fmt::Display for GameStatus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        match self {
-            Self::White => write!(f, "1-0"),
-            Self::Black => write!(f, "0-1"),
-            Self::Draw => write!(f, "1/2-1/2"),
-            Self::Running => write!(f, "*"),
         }
     }
 }
