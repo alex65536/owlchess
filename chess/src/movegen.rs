@@ -400,13 +400,13 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
     fn gen_castling(&mut self) -> Result<(), P::Err> {
         let rank = geometry::castling_rank(C::COLOR);
         if self.board.r.castling.has(C::COLOR, CastlingSide::King) {
-            let pass = castling::pass(C::COLOR, CastlingSide::King).shl(C::CASTLING_OFFSET);
+            let pass = castling::pass(C::COLOR, CastlingSide::King);
             let src = Coord::from_parts(File::E, rank);
             let tmp = Coord::from_parts(File::F, rank);
             let dst = Coord::from_parts(File::G, rank);
             if (pass & self.board.all).is_empty()
-                && !do_is_cell_attacked::<C>(self.board, src)
-                && !do_is_cell_attacked::<C>(self.board, tmp)
+                && !do_is_cell_attacked::<C::Inv>(self.board, src)
+                && !do_is_cell_attacked::<C::Inv>(self.board, tmp)
             {
                 unsafe {
                     self.add_move(MoveKind::CastlingKingside, src, dst)?;
@@ -414,13 +414,13 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
             }
         }
         if self.board.r.castling.has(C::COLOR, CastlingSide::Queen) {
-            let pass = castling::pass(C::COLOR, CastlingSide::Queen).shl(C::CASTLING_OFFSET);
+            let pass = castling::pass(C::COLOR, CastlingSide::Queen);
             let src = Coord::from_parts(File::E, rank);
             let tmp = Coord::from_parts(File::D, rank);
             let dst = Coord::from_parts(File::C, rank);
             if (pass & self.board.all).is_empty()
-                && !do_is_cell_attacked::<C>(self.board, src)
-                && !do_is_cell_attacked::<C>(self.board, tmp)
+                && !do_is_cell_attacked::<C::Inv>(self.board, src)
+                && !do_is_cell_attacked::<C::Inv>(self.board, tmp)
             {
                 unsafe {
                     self.add_move(MoveKind::CastlingQueenside, src, dst)?;
@@ -914,5 +914,16 @@ mod tests {
         assert_eq!(legal::gen_all(&b).len(), 16);
         assert_eq!(legal::gen_simple(&b).len(), 15);
         assert_eq!(legal::gen_capture(&b).len(), 1);
+    }
+
+    #[test]
+    fn test_castling() {
+        let b = Board::from_fen("5k2/8/8/8/8/8/8/4K2R w K - 0 1").unwrap();
+        assert_eq!(semilegal::gen_all(&b).len(), 15);
+        assert_eq!(semilegal::gen_simple(&b).len(), 15);
+        assert_eq!(semilegal::gen_capture(&b).len(), 0);
+        assert_eq!(legal::gen_all(&b).len(), 15);
+        assert_eq!(legal::gen_simple(&b).len(), 15);
+        assert_eq!(legal::gen_capture(&b).len(), 0);
     }
 }
