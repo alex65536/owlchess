@@ -1,5 +1,9 @@
 # Owlchess 🦉🦀
 
+[![Crates.io: owlchess](https://img.shields.io/crates/v/owlchess.svg)](https://crates.io/crates/owlchess)
+[![Documentation](https://img.shields.io/docsrs/owlchess/latest)](https://docs.rs/owlchess)
+[![Build](https://github.com/alex65536/owlchess/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/alex65536/owlchess/actions/workflows/build.yml)
+
 Yet another chess crate for Rust, with emphasis on speed and safety. Primarily designed for various
 chess GUIs and tools, it's also possible to use Owlchess to build a fast chess engine.
 
