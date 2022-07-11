@@ -33,7 +33,8 @@ use owlchess::{Board, movegen::legal};
 
 fn main() {
     // Create a board from FEN
-    let board = Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1").unwrap();
+    let board = Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
+        .unwrap();
 
     // Generate legal moves
     let moves = legal::gen_all(&board);
@@ -55,7 +56,11 @@ fn main() {
 
     // Create a new board with move `mv` made on it
     let board = board.make_move(mv).unwrap();
-    assert_eq!(board.as_fen(), "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1".to_string());
+    assert_eq!(
+        board.as_fen(),
+        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+            .to_string(),
+    );
 }
 ```
 
