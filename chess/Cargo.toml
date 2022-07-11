@@ -2,14 +2,22 @@
 name = "owlchess"
 version = "0.1.0"
 edition = "2021"
+description = "Yet another chess library for Rust"
+authors = ["Alexander Kernozhitsky <kernalex256@yandex.by>"]
+readme = "../README.md"
+homepage = "https://github.com/alex65536/owlchess"
+repository = "https://github.com/alex65536/owlchess"
+license = "MIT"
+keywords = ["games", "chess"]
+categories = ["games", "parser-implementations"]
 
 [dependencies]
-owlchess_base = { path = "../chess_base" }
+owlchess_base = { path = "../chess_base", version = "0.1.0" }
 thiserror = "1.0.31"
 arrayvec = "0.7.2"
 
 [build-dependencies]
-owlchess_base = { path = "../chess_base" }
+owlchess_base = { path = "../chess_base", version = "0.1.0" }
 rand_xoshiro = "0.6.0"
 rand_core = "0.6.3"
 
