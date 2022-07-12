@@ -146,6 +146,18 @@ impl Bitboard {
         *self = self.without(coord);
     }
 
+    /// Flips the ranks in the bitboard
+    #[inline]
+    pub const fn flipped_rank(self) -> Self {
+        Self(self.0.swap_bytes())
+    }
+
+    /// Flips the files in the bitboard
+    #[inline]
+    pub const fn flipped_file(self) -> Self {
+        Self(self.0.reverse_bits().swap_bytes())
+    }
+
     /// Returns `true` if the bitboard has square `coord`
     #[inline]
     pub const fn has(&self, coord: Coord) -> bool {
