@@ -255,6 +255,9 @@ impl<R: Repeat> BaseMoveChain<R> {
     /// This function ignores the value stored in [`BaseMoveChain::outcome()`] and uses
     /// just current position and repetition table for calculations.
     ///
+    /// This function can be computationally expensive, as it calls
+    /// [`movegen::has_legal_moves`](crate::movegen::has_legal_moves).
+    ///
     /// Unlike [`Board::calc_outcome()`], it is able to detect draw by repetitions.
     ///
     /// For the priority of different outcomes, see the docs for [`Board::calc_outcome()`]
@@ -296,6 +299,9 @@ impl<R: Repeat> BaseMoveChain<R> {
 
     /// Calculates the game outcome using [`BaseMoveChain::calc_outcome()`] and sets the calculated
     /// outcome if it passes the filter `filter`
+    ///
+    /// This function can be computationally expensive, as it calls
+    /// [`movegen::has_legal_moves`](crate::movegen::has_legal_moves).
     ///
     /// # Panics
     ///

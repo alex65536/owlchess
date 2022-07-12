@@ -547,6 +547,8 @@ impl Board {
     /// positions. You need to use [`MoveChain`](crate::chain::MoveChain) if you want to consider
     /// such draws.
     ///
+    /// This function can be computationally expensive, as it calls [`movegen::has_legal_moves`].
+    ///
     /// When calculating outcomes, outcomes passing [`OutcomeFilter::Force`](crate::types::OutcomeFilter::Force)
     /// are the most prioritized, and outcomes not passing [`OutcomeFilter::Strict`](crate::types::OutcomeFilter::Strict)
     /// are the least prioritized.

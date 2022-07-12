@@ -687,7 +687,8 @@ impl MaybeMovePush for ErrOnFirst {
 /// Returns `true` if the current side has at least one legal move
 ///
 /// This function is faster than just generating all the legal moves via [`legal::gen_all`],
-/// because it is able to stop on the first generated legal move.
+/// because it is able to stop on the first generated legal move. Still, it's computationally
+/// expensive as it tries to generate all possible moves.
 pub fn has_legal_moves(b: &Board) -> bool {
     let mut err_on_first = ErrOnFirst;
     let mut p = unsafe { LegalFilter::new(b.clone(), &mut err_on_first) };
