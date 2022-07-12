@@ -500,7 +500,7 @@ pub struct RawUndo {
     hash: u64,
     dst_cell: Cell,
     castling: CastlingRights,
-    enpassant: Option<Coord>,
+    ep_source: Option<Coord>,
     move_counter: u16,
 }
 
@@ -546,7 +546,7 @@ fn do_make_pawn_double<C: generic::Color>(b: &mut Board, mv: Move, change: Bitbo
     *b.color_mut(C::COLOR) ^= change;
     *b.piece_mut(pawn) ^= change;
     if !inv {
-        b.r.enpassant = Some(mv.dst);
+        b.r.ep_source = Some(mv.dst);
         b.hash ^= zobrist::enpassant(mv.dst);
     }
 }
@@ -643,15 +643,15 @@ fn do_make_move<C: generic::Color>(b: &mut Board, mv: Move) -> RawUndo {
         hash: b.hash,
         dst_cell,
         castling: b.r.castling,
-        enpassant: b.r.enpassant,
+        ep_source: b.r.ep_source,
         move_counter: b.r.move_counter,
     };
     let src = Bitboard::from_coord(mv.src);
     let dst = Bitboard::from_coord(mv.dst);
     let change = src | dst;
-    if let Some(p) = b.r.enpassant {
+    if let Some(p) = b.r.ep_source {
         b.hash ^= zobrist::enpassant(p);
-        b.r.enpassant = None;
+        b.r.ep_source = None;
     }
     match mv.kind {
         MoveKind::Simple | MoveKind::PawnSimple => {
@@ -770,7 +770,7 @@ fn do_unmake_move<C: generic::Color>(b: &mut Board, mv: Move, u: RawUndo) {
 
     b.hash = u.hash;
     b.r.castling = u.castling;
-    b.r.enpassant = u.enpassant;
+    b.r.ep_source = u.ep_source;
     b.r.move_counter = u.move_counter;
     b.r.side = C::COLOR;
     if C::COLOR == Color::Black {
@@ -904,7 +904,7 @@ fn do_is_move_semilegal<C: generic::Color>(b: &Board, mv: Move) -> bool {
             if src_cell != pawn {
                 return false;
             }
-            if let Some(p) = b.r.enpassant {
+            if let Some(p) = b.r.ep_source {
                 unsafe {
                     return (p == mv.src.add_unchecked(1) || p == mv.src.add_unchecked(-1))
                         && mv.dst == p.add_unchecked(geometry::pawn_forward_delta(C::COLOR));

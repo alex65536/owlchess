@@ -390,11 +390,8 @@ impl Data {
                     return Err(IntoMoveError::Create(CreateError::NotWellFormed));
                 }
                 let mut kind = MoveKind::PawnSimple;
-                if let Some(enpassant) = b.r.enpassant {
-                    let expected_dst = enpassant.add(geometry::pawn_forward_delta(b.side()));
-                    if dst == expected_dst {
-                        kind = MoveKind::Enpassant;
-                    }
+                if Some(dst) == b.r.ep_dest() {
+                    kind = MoveKind::Enpassant;
                 }
                 if kind != MoveKind::Enpassant && b.get(dst).is_free() {
                     return Err(IntoMoveError::CaptureExpected);

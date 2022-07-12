@@ -312,13 +312,13 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
     }
 
     fn gen_pawn_enpassant(&mut self) -> Result<(), P::Err> {
-        if let Some(enpassant) = self.board.r.enpassant {
-            let file = enpassant.file();
-            let dst = unsafe { enpassant.add_unchecked(geometry::pawn_forward_delta(C::COLOR)) };
+        if let Some(ep) = self.board.r.ep_source {
+            let file = ep.file();
+            let dst = unsafe { ep.add_unchecked(geometry::pawn_forward_delta(C::COLOR)) };
             // We assume that the cell behind the pawn that made double move is empty, so don't check it
             let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
             let (left_pawn, right_pawn) =
-                unsafe { (enpassant.add_unchecked(-1), enpassant.add_unchecked(1)) };
+                unsafe { (ep.add_unchecked(-1), ep.add_unchecked(1)) };
             if file != File::A && self.board.get(left_pawn) == pawn {
                 unsafe {
                     self.add_move(MoveKind::Enpassant, left_pawn, dst)?;
@@ -518,14 +518,14 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
             }
         }
 
-        if let Some(enpassant) = self.board.r.enpassant {
-            if enpassant.file() == dst && promote.is_none() {
+        if let Some(ep) = self.board.r.ep_source {
+            if ep.file() == dst && promote.is_none() {
                 let dst_coord =
-                    unsafe { enpassant.add_unchecked(geometry::pawn_forward_delta(C::COLOR)) };
+                    unsafe { ep.add_unchecked(geometry::pawn_forward_delta(C::COLOR)) };
                 // We assume that the cell behind the pawn that made double move is empty, so don't check it
                 let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
                 let (left_pawn, right_pawn) =
-                    unsafe { (enpassant.add_unchecked(-1), enpassant.add_unchecked(1)) };
+                    unsafe { (ep.add_unchecked(-1), ep.add_unchecked(1)) };
                 if src.index() + 1 == dst.index() && self.board.get(left_pawn) == pawn {
                     unsafe {
                         self.add_move(MoveKind::Enpassant, left_pawn, dst_coord)?;

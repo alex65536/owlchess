@@ -131,7 +131,7 @@ pub enum FenParseError {
 ///     cells: [Default::default(); 64],
 ///     side: Color::White,
 ///     castling: CastlingRights::EMPTY,
-///     enpassant: None,
+///     ep_source: None,
 ///     move_counter: 10,
 ///     move_number: 42,
 /// };
@@ -153,11 +153,14 @@ pub struct RawBoard {
     pub side: Color,
     /// Castling rights
     pub castling: CastlingRights,
-    /// En passant square
+    /// En passant source square
     ///
-    /// Must be equal to `None` if no enpassant is allowed. Otherwise, it contains
-    /// the square with the pawn which can be captured by enpassant
-    pub enpassant: Option<Coord>,
+    /// It is be equal to `None` if no enpassant is allowed. Otherwise, it contains
+    /// the square with the pawn which can be captured by enpassant.
+    ///
+    /// If you want to obtain the destination square for the possible enpassant, see
+    /// [`RawBoard::ep_dest()`].
+    pub ep_source: Option<Coord>,
     /// Number of half-moves without pawn moves or captures
     ///
     /// It is required for draw by 50 or 75 moves.
@@ -179,7 +182,7 @@ impl RawBoard {
             cells: [Cell::EMPTY; 64],
             side: Color::White,
             castling: CastlingRights::EMPTY,
-            enpassant: None,
+            ep_source: None,
             move_counter: 0,
             move_number: 1,
         }
@@ -191,7 +194,7 @@ impl RawBoard {
             cells: [Cell::EMPTY; 64],
             side: Color::White,
             castling: CastlingRights::FULL,
-            enpassant: None,
+            ep_source: None,
             move_counter: 0,
             move_number: 1,
         };
@@ -258,7 +261,7 @@ impl RawBoard {
         } else {
             0
         };
-        if let Some(p) = self.enpassant {
+        if let Some(p) = self.ep_source {
             hash ^= zobrist::enpassant(p);
         }
         hash ^= zobrist::castling(self.castling);
@@ -268,6 +271,18 @@ impl RawBoard {
             }
         }
         hash
+    }
+
+    /// Returns `None` if no enpassant is allowed. Otherwise, returns the destination
+    /// square for the possible enpassant.
+    ///
+    /// If the rank of `self.ep_source` is not a valid rank for enpassant source (i.e not
+    /// equal to [`Rank::R5`] for White and [`Rank::R4`] for Black), then the function just
+    /// returns the result as if the rank was valid.
+    #[inline]
+    pub fn ep_dest(&self) -> Option<Coord> {
+        let p = self.ep_source?;
+        Some(Coord::from_parts(p.file(), geometry::enpassant_dst_rank(self.side)))
     }
 
     /// Wraps the board to allow pretty-printing with the given style `Style`
@@ -622,20 +637,19 @@ impl TryFrom<RawBoard> for Board {
     type Error = ValidateError;
 
     fn try_from(mut raw: RawBoard) -> Result<Board, ValidateError> {
-        // Check InvalidEnpassant
-        if let Some(p) = raw.enpassant {
+        // Check enpassant
+        if let Some(p) = raw.ep_source {
+            // Check InvalidEnpassant
             if p.rank() != geometry::enpassant_src_rank(raw.side) {
                 return Err(ValidateError::InvalidEnpassant(p));
             }
-        }
 
-        // Reset enpassant if either there is no pawn or the cell on the pawn's path is occupied
-        if let Some(p) = raw.enpassant {
+            // Reset enpassant if either there is no pawn or the cell on the pawn's path is occupied
             let pp = p.add(geometry::pawn_forward_delta(raw.side));
             if raw.get(p) != Cell::from_parts(raw.side.inv(), Piece::Pawn)
                 || raw.get(pp) != Cell::EMPTY
             {
-                raw.enpassant = None;
+                raw.ep_source = None;
             }
         }
 
@@ -795,7 +809,7 @@ fn parse_cells(s: &str) -> Result<[Cell; 64], CellsParseError> {
     Ok(cells)
 }
 
-fn parse_enpassant(s: &str, side: Color) -> Result<Option<Coord>, RawFenParseError> {
+fn parse_ep_source(s: &str, side: Color) -> Result<Option<Coord>, RawFenParseError> {
     if s == "-" {
         return Ok(None);
     }
@@ -823,7 +837,7 @@ impl FromStr for RawBoard {
         let cells = parse_cells(iter.next().ok_or(Error::NoBoard)?)?;
         let side = Color::from_str(iter.next().ok_or(Error::NoMoveSide)?)?;
         let castling = CastlingRights::from_str(iter.next().ok_or(Error::NoCastling)?)?;
-        let enpassant = parse_enpassant(iter.next().ok_or(Error::NoEnpassant)?, side)?;
+        let ep_source = parse_ep_source(iter.next().ok_or(Error::NoEnpassant)?, side)?;
         let move_counter = match iter.next() {
             Some(s) => u16::from_str(s).map_err(Error::MoveCounter)?,
             None => 0,
@@ -841,7 +855,7 @@ impl FromStr for RawBoard {
             cells,
             side,
             castling,
-            enpassant,
+            ep_source,
             move_counter,
             move_number,
         })
@@ -885,12 +899,8 @@ impl Display for RawBoard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         format_cells(&self.cells, f)?;
         write!(f, " {} {}", self.side, self.castling)?;
-        match self.enpassant {
-            Some(p) => write!(
-                f,
-                " {}",
-                Coord::from_parts(p.file(), geometry::enpassant_dst_rank(self.side))
-            )?,
+        match self.ep_dest() {
+            Some(p) => write!(f, " {}", p)?,
             None => write!(f, " -")?,
         };
         write!(f, " {} {}", self.move_counter, self.move_number)?;
@@ -1025,7 +1035,7 @@ mod tests {
         );
         assert_eq!(board.raw().side, Color::White);
         assert_eq!(board.raw().castling, CastlingRights::EMPTY);
-        assert_eq!(board.raw().enpassant, None);
+        assert_eq!(board.raw().ep_source, None);
         assert_eq!(board.raw().move_counter, 1);
         assert_eq!(board.raw().move_number, 21);
     }
@@ -1037,7 +1047,8 @@ mod tests {
 
         let raw = RawBoard::from_fen(FEN).unwrap();
         assert_eq!(raw.castling, CastlingRights::FULL);
-        assert_eq!(raw.enpassant, Some(Coord::from_parts(File::C, Rank::R5)));
+        assert_eq!(raw.ep_source, Some(Coord::from_parts(File::C, Rank::R5)));
+        assert_eq!(raw.ep_dest(), Some(Coord::from_parts(File::C, Rank::R6)));
         assert_eq!(raw.as_fen(), FEN);
 
         let board: Board = raw.try_into().unwrap();
@@ -1045,7 +1056,8 @@ mod tests {
             board.raw().castling,
             CastlingRights::EMPTY.with(Color::White, CastlingSide::Queen)
         );
-        assert_eq!(board.raw().enpassant, None);
+        assert_eq!(board.raw().ep_source, None);
+        assert_eq!(board.raw().ep_dest(), None);
         assert_eq!(
             board.as_fen(),
             "r1bq1b1r/ppppkppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK1R1 w Q - 6 5"
