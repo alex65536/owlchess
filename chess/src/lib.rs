@@ -56,6 +56,7 @@ use owlchess_base::geometry;
 mod attack;
 mod castling;
 mod generic;
+mod legal;
 mod pawns;
 mod zobrist;
 

@@ -551,16 +551,12 @@ fn do_make_pawn_double<C: generic::Color>(b: &mut Board, mv: Move, change: Bitbo
     }
 }
 
-unsafe fn enpassant_pawn_pos_unchecked(c: Color, dst: Coord) -> Coord {
-    match c {
-        Color::White => dst.add_unchecked(8),
-        Color::Black => dst.add_unchecked(-8),
-    }
-}
-
 #[inline]
 fn do_make_enpassant<C: generic::Color>(b: &mut Board, mv: Move, change: Bitboard, inv: bool) {
-    let taken_pos = unsafe { enpassant_pawn_pos_unchecked(C::COLOR, mv.dst) };
+    let taken_pos = unsafe {
+        mv.dst
+            .add_unchecked(-geometry::pawn_forward_delta(C::COLOR))
+    };
     let taken = Bitboard::from_coord(taken_pos);
     let our_pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
     let their_pawn = Cell::from_parts(C::COLOR.inv(), Piece::Pawn);

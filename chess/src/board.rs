@@ -282,7 +282,10 @@ impl RawBoard {
     #[inline]
     pub fn ep_dest(&self) -> Option<Coord> {
         let p = self.ep_source?;
-        Some(Coord::from_parts(p.file(), geometry::enpassant_dst_rank(self.side)))
+        Some(Coord::from_parts(
+            p.file(),
+            geometry::enpassant_dst_rank(self.side),
+        ))
     }
 
     /// Wraps the board to allow pretty-printing with the given style `Style`

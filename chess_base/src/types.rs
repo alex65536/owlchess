@@ -567,6 +567,54 @@ pub enum Piece {
     Queen = 5,
 }
 
+impl Piece {
+    /// Number of different possible indices of [`Piece`]
+    ///
+    /// It exceeds maximum possible index by one.
+    pub const COUNT: usize = 6;
+
+    /// Returns a numeric index of the current piece
+    #[inline]
+    pub const fn index(&self) -> usize {
+        *self as u8 as usize
+    }
+
+    /// Converts a piece index to [`Piece`]
+    ///
+    /// # Safety
+    ///
+    /// The behavior is undefined if the index is invalid (i.e. it is greater or equal than [`Piece::COUNT`])
+    #[inline]
+    pub const unsafe fn from_index_unchecked(val: usize) -> Self {
+        match val {
+            0 => Self::Pawn,
+            1 => Self::King,
+            2 => Self::Knight,
+            3 => Self::Bishop,
+            4 => Self::Rook,
+            5 => Self::Queen,
+            _ => hint::unreachable_unchecked(),
+        }
+    }
+
+    /// Converts a piece index to [`Piece`]
+    ///
+    /// # Panics
+    ///
+    /// The function panics if the index is invalid (i.e. it is greater or equal than [`Piece::COUNT`])
+    #[inline]
+    pub const fn from_index(val: usize) -> Self {
+        assert!(val < Self::COUNT, "piece index must be between 0 and 5");
+        unsafe { Self::from_index_unchecked(val) }
+    }
+
+    /// Returns an iterator over all the pieces, in ascending order of their indices
+    #[inline]
+    pub fn iter() -> impl Iterator<Item = Self> {
+        (0..Self::COUNT).map(|x| unsafe { Self::from_index_unchecked(x) })
+    }
+}
+
 /// Contents of square on a chess board
 ///
 /// A square can be either empty or contain a piece of some given color.
@@ -1123,6 +1171,14 @@ mod tests {
         for (idx, rank) in Rank::iter().enumerate() {
             assert_eq!(rank.index(), idx);
             assert_eq!(Rank::from_index(idx), rank);
+        }
+    }
+
+    #[test]
+    fn test_piece() {
+        for (idx, piece) in Piece::iter().enumerate() {
+            assert_eq!(piece.index(), idx);
+            assert_eq!(Piece::from_index(idx), piece);
         }
     }
 
