@@ -2,6 +2,7 @@ use super::{san, uci};
 use crate::bitboard::Bitboard;
 use crate::board::Board;
 use crate::types::{CastlingRights, CastlingSide, Cell, Color, Coord, File, Piece, Rank};
+use crate::legal::Checker;
 use crate::{attack, castling, generic, geometry, movegen, zobrist};
 
 use std::fmt;
@@ -926,9 +927,7 @@ pub fn is_move_semilegal(b: &Board, mv: Move) -> bool {
 ///
 /// The move must be semilegal, otherwise the behavior is undefined.
 pub unsafe fn is_move_legal_unchecked(b: &Board, mv: Move) -> bool {
-    let mut b_copy = b.clone();
-    let _ = make_move_unchecked(&mut b_copy, mv);
-    !b_copy.is_opponent_king_attacked()
+    Checker::from(b).is_legal(mv)
 }
 
 /// Validates whether move `mv` is semilegal from position `b`
