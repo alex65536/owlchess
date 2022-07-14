@@ -1,6 +1,6 @@
 //! Bitboard-related stuff
 
-use crate::types::Coord;
+use crate::types::{Coord, File, Rank};
 use derive_more::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 use std::fmt;
 use std::iter::IntoIterator;
@@ -61,12 +61,28 @@ impl Bitboard {
         Bitboard(self.0 | (1_u64 << coord.index()))
     }
 
+    /// Adds square with file `file` and rank `rank` to the bitboard
+    ///
+    /// If the provided square is already present, the bitboard is returned unchanged.
+    #[inline]
+    pub const fn with2(self, file: File, rank: Rank) -> Bitboard {
+        self.with(Coord::from_parts(file, rank))
+    }
+
     /// Removes square `coord` from the bitboard
     ///
-    /// If the provided bitboard doesn't have square `coord`, it is returned unchanged.
+    /// If the provided bitboard doesn't have such square, it is returned unchanged.
     #[inline]
     pub const fn without(self, coord: Coord) -> Bitboard {
         Bitboard(self.0 & !(1_u64 << coord.index()))
+    }
+
+    /// Removes square with file `file` and rank `rank` from the bitboard
+    ///
+    /// If the provided bitboard doesn't have such square, it is returned unchanged.
+    #[inline]
+    pub const fn without2(self, file: File, rank: Rank) -> Bitboard {
+        self.without(Coord::from_parts(file, rank))
     }
 
     /// Performs a left bitwise shift of the inner value
