@@ -1,9 +1,9 @@
 use super::{san, uci};
 use crate::bitboard::Bitboard;
 use crate::board::Board;
-use crate::types::{CastlingRights, CastlingSide, Cell, Color, Coord, File, Piece, Rank};
 use crate::legal::Checker;
-use crate::{attack, castling, generic, geometry, movegen, zobrist};
+use crate::types::{CastlingRights, CastlingSide, Cell, Color, Coord, File, Piece, Rank};
+use crate::{attack, between, castling, generic, geometry, movegen, zobrist};
 
 use std::fmt;
 use std::str::FromStr;
@@ -838,6 +838,14 @@ pub unsafe fn try_make_move_unchecked(b: &mut Board, mv: Move) -> Result<RawUndo
     Ok(u)
 }
 
+fn is_bishop_semilegal(src: Coord, dst: Coord, all: Bitboard) -> bool {
+    between::is_bishop_valid(src, dst) && (between::bishop_strict(src, dst) & all).is_empty()
+}
+
+fn is_rook_semilegal(src: Coord, dst: Coord, all: Bitboard) -> bool {
+    between::is_rook_valid(src, dst) && (between::rook_strict(src, dst) & all).is_empty()
+}
+
 fn do_is_move_semilegal<C: generic::Color>(b: &Board, mv: Move) -> bool {
     if mv.side == Some(C::COLOR.inv()) {
         return false;
@@ -851,11 +859,10 @@ fn do_is_move_semilegal<C: generic::Color>(b: &Board, mv: Move) -> bool {
                 return false;
             }
             match src_cell.piece() {
-                Some(Piece::Bishop) => (attack::bishop(mv.src, b.all) & dst).is_nonempty(),
-                Some(Piece::Rook) => (attack::rook(mv.src, b.all) & dst).is_nonempty(),
+                Some(Piece::Bishop) => is_bishop_semilegal(mv.src, mv.dst, b.all),
+                Some(Piece::Rook) => is_rook_semilegal(mv.src, mv.dst, b.all),
                 Some(Piece::Queen) => {
-                    (attack::bishop(mv.src, b.all) & dst).is_nonempty()
-                        || (attack::rook(mv.src, b.all) & dst).is_nonempty()
+                    is_bishop_semilegal(mv.src, mv.dst, b.all) || is_rook_semilegal(mv.src, mv.dst, b.all)
                 }
                 Some(Piece::Knight) => (attack::knight(mv.src) & dst).is_nonempty(),
                 Some(Piece::King) => (attack::king(mv.src) & dst).is_nonempty(),

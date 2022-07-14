@@ -1,11 +1,22 @@
 use std::path::Path;
 use std::{env, io};
 
+use owlchess_base::bitboard::Bitboard;
+
 use rand_core::{RngCore, SeedableRng};
 use rand_xoshiro::Xoshiro256PlusPlus;
 
 pub fn default_gen() -> impl RngCore {
     Xoshiro256PlusPlus::seed_from_u64(0x800D_BA5E_5EED_1234_u64)
+}
+
+fn print_bitboards<W: io::Write>(w: &mut W, name: &str, bs: &[Bitboard]) -> io::Result<()> {
+    writeln!(w, "const {}: [Bitboard; {}] = [", name, bs.len())?;
+    for (i, b) in bs.iter().enumerate() {
+        writeln!(w, "    /*{:2}*/ bb(0x{:016x}),", i, b.as_raw())?;
+    }
+    writeln!(w, "];")?;
+    Ok(())
 }
 
 mod zobrist {
@@ -145,41 +156,32 @@ mod near_attacks {
         res
     }
 
-    fn print_bitboards<W: Write>(w: &mut W, name: &str, bs: [Bitboard; 64]) -> io::Result<()> {
-        writeln!(w, "const {}: [Bitboard; 64] = [", name)?;
-        for (i, b) in bs.iter().enumerate() {
-            writeln!(w, "    /*{:2}*/ bb(0x{:016x}),", i, b.as_raw())?;
-        }
-        writeln!(w, "];")?;
-        Ok(())
-    }
-
     pub fn gen(out_path: &Path) -> io::Result<()> {
         let f = fs::File::create(out_path)?;
         let mut w = BufWriter::new(&f);
 
-        print_bitboards(
+        super::print_bitboards(
             &mut w,
             "KING_ATTACKS",
-            generate_directed([-1, -1, -1, 0, 0, 1, 1, 1], [-1, 0, 1, -1, 1, -1, 0, 1]),
+            &generate_directed([-1, -1, -1, 0, 0, 1, 1, 1], [-1, 0, 1, -1, 1, -1, 0, 1]),
         )?;
         writeln!(&mut w)?;
-        print_bitboards(
+        super::print_bitboards(
             &mut w,
             "KNIGHT_ATTACKS",
-            generate_directed([-2, -2, -1, -1, 2, 2, 1, 1], [-1, 1, -2, 2, -1, 1, -2, 2]),
+            &generate_directed([-2, -2, -1, -1, 2, 2, 1, 1], [-1, 1, -2, 2, -1, 1, -2, 2]),
         )?;
         writeln!(&mut w)?;
-        print_bitboards(
+        super::print_bitboards(
             &mut w,
             "WHITE_PAWN_ATTACKS",
-            generate_directed([-1, 1], [-1, -1]),
+            &generate_directed([-1, 1], [-1, -1]),
         )?;
         writeln!(&mut w)?;
-        print_bitboards(
+        super::print_bitboards(
             &mut w,
             "BLACK_PAWN_ATTACKS",
-            generate_directed([-1, 1], [1, 1]),
+            &generate_directed([-1, 1], [1, 1]),
         )?;
 
         Ok(())
@@ -432,6 +434,82 @@ mod magic {
     }
 }
 
+mod between {
+    use std::io::{self, BufWriter, Write};
+    use std::{fs, path::Path};
+
+    use owlchess_base::bitboard::Bitboard;
+    use owlchess_base::bitboard_consts;
+    use owlchess_base::types::Coord;
+
+    fn bishop(mask: impl Fn(Coord) -> Bitboard) -> [Bitboard; 64] {
+        let mut res = [Bitboard::EMPTY; 64];
+        for c in Coord::iter() {
+            let val = bitboard_consts::DIAG[c.diag()] | bitboard_consts::ANTIDIAG[c.antidiag()];
+            res[c.index()] = val & mask(c);
+        }
+        res
+    }
+
+    fn rook(mask: impl Fn(Coord) -> Bitboard) -> [Bitboard; 64] {
+        let mut res = [Bitboard::EMPTY; 64];
+        for c in Coord::iter() {
+            let val = bitboard_consts::file(c.file()) | bitboard_consts::rank(c.rank());
+            res[c.index()] = val & mask(c);
+        }
+        res
+    }
+
+    fn not_eq(c: Coord) -> Bitboard {
+        !Bitboard::from_coord(c)
+    }
+
+    fn less(c: Coord) -> Bitboard {
+        Bitboard::from((1u64 << c.index()).wrapping_sub(1))
+    }
+
+    fn less_eq(c: Coord) -> Bitboard {
+        less(c) | Bitboard::from_coord(c)
+    }
+
+    fn greater(c: Coord) -> Bitboard {
+        !less_eq(c)
+    }
+
+    fn greater_eq(c: Coord) -> Bitboard {
+        !less(c)
+    }
+
+    pub fn gen(out_path: &Path) -> io::Result<()> {
+        let f = fs::File::create(out_path)?;
+        let mut w = BufWriter::new(&f);
+
+        super::print_bitboards(&mut w, "BISHOP_LT", &bishop(less))?;
+        writeln!(&mut w)?;
+        super::print_bitboards(&mut w, "BISHOP_LE", &bishop(less_eq))?;
+        writeln!(&mut w)?;
+        super::print_bitboards(&mut w, "BISHOP_GT", &bishop(greater))?;
+        writeln!(&mut w)?;
+        super::print_bitboards(&mut w, "BISHOP_GE", &bishop(greater_eq))?;
+        writeln!(&mut w)?;
+        super::print_bitboards(&mut w, "BISHOP_NE", &bishop(not_eq))?;
+
+        writeln!(&mut w)?;
+
+        super::print_bitboards(&mut w, "ROOK_LT", &rook(less))?;
+        writeln!(&mut w)?;
+        super::print_bitboards(&mut w, "ROOK_LE", &rook(less_eq))?;
+        writeln!(&mut w)?;
+        super::print_bitboards(&mut w, "ROOK_GT", &rook(greater))?;
+        writeln!(&mut w)?;
+        super::print_bitboards(&mut w, "ROOK_GE", &rook(greater_eq))?;
+        writeln!(&mut w)?;
+        super::print_bitboards(&mut w, "ROOK_NE", &rook(not_eq))?;
+
+        Ok(())
+    }
+}
+
 fn main() -> io::Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
 
@@ -440,6 +518,7 @@ fn main() -> io::Result<()> {
     zobrist::gen(&Path::new(&out_dir).join("zobrist.rs"))?;
     near_attacks::gen(&Path::new(&out_dir).join("near_attacks.rs"))?;
     magic::gen(&Path::new(&out_dir).join("magic.rs"))?;
+    between::gen(&Path::new(&out_dir).join("between.rs"))?;
 
     Ok(())
 }

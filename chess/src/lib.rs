@@ -54,6 +54,7 @@ use owlchess_base::bitboard_consts;
 use owlchess_base::geometry;
 
 mod attack;
+mod between;
 mod castling;
 mod generic;
 mod legal;
