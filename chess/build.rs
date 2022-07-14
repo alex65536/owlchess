@@ -476,21 +476,13 @@ mod between {
         !less_eq(c)
     }
 
-    fn greater_eq(c: Coord) -> Bitboard {
-        !less(c)
-    }
-
     pub fn gen(out_path: &Path) -> io::Result<()> {
         let f = fs::File::create(out_path)?;
         let mut w = BufWriter::new(&f);
 
         super::print_bitboards(&mut w, "BISHOP_LT", &bishop(less))?;
         writeln!(&mut w)?;
-        super::print_bitboards(&mut w, "BISHOP_LE", &bishop(less_eq))?;
-        writeln!(&mut w)?;
         super::print_bitboards(&mut w, "BISHOP_GT", &bishop(greater))?;
-        writeln!(&mut w)?;
-        super::print_bitboards(&mut w, "BISHOP_GE", &bishop(greater_eq))?;
         writeln!(&mut w)?;
         super::print_bitboards(&mut w, "BISHOP_NE", &bishop(not_eq))?;
 
@@ -498,11 +490,7 @@ mod between {
 
         super::print_bitboards(&mut w, "ROOK_LT", &rook(less))?;
         writeln!(&mut w)?;
-        super::print_bitboards(&mut w, "ROOK_LE", &rook(less_eq))?;
-        writeln!(&mut w)?;
         super::print_bitboards(&mut w, "ROOK_GT", &rook(greater))?;
-        writeln!(&mut w)?;
-        super::print_bitboards(&mut w, "ROOK_GE", &rook(greater_eq))?;
         writeln!(&mut w)?;
         super::print_bitboards(&mut w, "ROOK_NE", &rook(not_eq))?;
 

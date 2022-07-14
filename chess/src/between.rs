@@ -18,21 +18,9 @@ fn sort(src: Coord, dst: Coord) -> (Coord, Coord) {
 }
 
 #[inline]
-pub fn bishop(src: Coord, dst: Coord) -> Bitboard {
-    let (src, dst) = sort(src, dst);
-    unsafe { *BISHOP_GE.get_unchecked(src.index()) & *BISHOP_LE.get_unchecked(dst.index()) }
-}
-
-#[inline]
 pub fn bishop_strict(src: Coord, dst: Coord) -> Bitboard {
     let (src, dst) = sort(src, dst);
     unsafe { *BISHOP_GT.get_unchecked(src.index()) & *BISHOP_LT.get_unchecked(dst.index()) }
-}
-
-#[inline]
-pub fn rook(src: Coord, dst: Coord) -> Bitboard {
-    let (src, dst) = sort(src, dst);
-    unsafe { *ROOK_GE.get_unchecked(src.index()) & *ROOK_LE.get_unchecked(dst.index()) }
 }
 
 #[inline]
@@ -58,30 +46,16 @@ mod tests {
 
     #[test]
     fn test_bishop() {
-        let res = Bitboard::EMPTY
-            .with2(File::B, Rank::R4)
-            .with2(File::C, Rank::R5)
-            .with2(File::D, Rank::R6)
-            .with2(File::E, Rank::R7);
         let b4 = Coord::from_parts(File::B, Rank::R4);
         let e7 = Coord::from_parts(File::E, Rank::R7);
-        assert_eq!(bishop(b4, e7), res);
-        assert_eq!(bishop(e7, b4), res);
         let res = Bitboard::EMPTY
             .with2(File::C, Rank::R5)
             .with2(File::D, Rank::R6);
         assert_eq!(bishop_strict(b4, e7), res);
         assert_eq!(bishop_strict(e7, b4), res);
 
-        let res = Bitboard::EMPTY
-            .with2(File::F, Rank::R3)
-            .with2(File::E, Rank::R4)
-            .with2(File::D, Rank::R5)
-            .with2(File::C, Rank::R6);
         let f3 = Coord::from_parts(File::F, Rank::R3);
         let c6 = Coord::from_parts(File::C, Rank::R6);
-        assert_eq!(bishop(f3, c6), res);
-        assert_eq!(bishop(c6, f3), res);
         let res = Bitboard::EMPTY
             .with2(File::E, Rank::R4)
             .with2(File::D, Rank::R5);
@@ -91,30 +65,16 @@ mod tests {
 
     #[test]
     fn test_rook() {
-        let res = Bitboard::EMPTY
-            .with2(File::B, Rank::R4)
-            .with2(File::C, Rank::R4)
-            .with2(File::D, Rank::R4)
-            .with2(File::E, Rank::R4);
         let b4 = Coord::from_parts(File::B, Rank::R4);
         let e4 = Coord::from_parts(File::E, Rank::R4);
-        assert_eq!(rook(b4, e4), res);
-        assert_eq!(rook(e4, b4), res);
         let res = Bitboard::EMPTY
             .with2(File::C, Rank::R4)
             .with2(File::D, Rank::R4);
         assert_eq!(rook_strict(b4, e4), res);
         assert_eq!(rook_strict(e4, b4), res);
 
-        let res = Bitboard::EMPTY
-            .with2(File::D, Rank::R3)
-            .with2(File::D, Rank::R4)
-            .with2(File::D, Rank::R5)
-            .with2(File::D, Rank::R6);
         let d3 = Coord::from_parts(File::D, Rank::R3);
         let d6 = Coord::from_parts(File::D, Rank::R6);
-        assert_eq!(rook(d3, d6), res);
-        assert_eq!(rook(d6, d3), res);
         let res = Bitboard::EMPTY
             .with2(File::D, Rank::R4)
             .with2(File::D, Rank::R5);
