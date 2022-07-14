@@ -809,6 +809,11 @@ impl CastlingRights {
         ((c as u8) << 1) | s as u8
     }
 
+    #[inline]
+    const fn to_color_mask(c: Color) -> u8 {
+        3 << ((c as u8) << 1)
+    }
+
     /// Empty castling rights (i.e. castling is not allowed at all)
     pub const EMPTY: CastlingRights = CastlingRights(0);
 
@@ -819,6 +824,13 @@ impl CastlingRights {
     #[inline]
     pub const fn has(&self, c: Color, s: CastlingSide) -> bool {
         ((self.0 >> Self::to_index(c, s)) & 1) != 0
+    }
+
+    /// Returns `true` if color `c` is able to perform castling to at least one of
+    /// the sides.
+    #[inline]
+    pub const fn has_color(&self, c: Color) -> bool {
+        (self.0 & Self::to_color_mask(c)) != 0
     }
 
     /// Adds `s` to allowed castling sides for color `c`
@@ -1224,16 +1236,20 @@ mod tests {
         let empty = CastlingRights::EMPTY;
         assert!(!empty.has(Color::White, CastlingSide::Queen));
         assert!(!empty.has(Color::White, CastlingSide::King));
+        assert!(!empty.has_color(Color::White));
         assert!(!empty.has(Color::Black, CastlingSide::Queen));
         assert!(!empty.has(Color::Black, CastlingSide::King));
+        assert!(!empty.has_color(Color::Black));
         assert_eq!(empty.to_string(), "-");
         assert_eq!(CastlingRights::from_str("-"), Ok(empty));
 
         let full = CastlingRights::FULL;
         assert!(full.has(Color::White, CastlingSide::Queen));
         assert!(full.has(Color::White, CastlingSide::King));
+        assert!(full.has_color(Color::White));
         assert!(full.has(Color::Black, CastlingSide::Queen));
         assert!(full.has(Color::Black, CastlingSide::King));
+        assert!(full.has_color(Color::Black));
         assert_eq!(full.to_string(), "KQkq");
         assert_eq!(CastlingRights::from_str("KQkq"), Ok(full));
 
@@ -1241,8 +1257,10 @@ mod tests {
         rights.set(Color::White, CastlingSide::King);
         assert!(!rights.has(Color::White, CastlingSide::Queen));
         assert!(rights.has(Color::White, CastlingSide::King));
+        assert!(rights.has_color(Color::White));
         assert!(!rights.has(Color::Black, CastlingSide::Queen));
         assert!(!rights.has(Color::Black, CastlingSide::King));
+        assert!(!rights.has_color(Color::Black));
         assert_eq!(rights.to_string(), "K");
         assert_eq!(CastlingRights::from_str("K"), Ok(rights));
 
@@ -1250,8 +1268,10 @@ mod tests {
         rights.set(Color::Black, CastlingSide::Queen);
         assert!(!rights.has(Color::White, CastlingSide::Queen));
         assert!(!rights.has(Color::White, CastlingSide::King));
+        assert!(!rights.has_color(Color::White));
         assert!(rights.has(Color::Black, CastlingSide::Queen));
         assert!(!rights.has(Color::Black, CastlingSide::King));
+        assert!(rights.has_color(Color::Black));
         assert_eq!(rights.to_string(), "q");
         assert_eq!(CastlingRights::from_str("q"), Ok(rights));
     }
