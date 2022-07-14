@@ -21,9 +21,7 @@ impl Prechecker for NilPrechecker {
 #[derive(Clone, Debug)]
 enum PrecheckData {
     Check,
-    NotCheck {
-        pinned_or_king: Bitboard,
-    },
+    NotCheck { pinned_or_king: Bitboard },
 }
 
 #[derive(Clone, Debug)]
