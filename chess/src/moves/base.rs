@@ -1,7 +1,7 @@
 use super::{san, uci};
 use crate::bitboard::Bitboard;
 use crate::board::Board;
-use crate::legal::Checker;
+use crate::legal::{Checker, NilPrechecker};
 use crate::types::{CastlingRights, CastlingSide, Cell, Color, Coord, File, Piece, Rank};
 use crate::{attack, between, castling, generic, geometry, movegen, zobrist};
 
@@ -862,7 +862,8 @@ fn do_is_move_semilegal<C: generic::Color>(b: &Board, mv: Move) -> bool {
                 Some(Piece::Bishop) => is_bishop_semilegal(mv.src, mv.dst, b.all),
                 Some(Piece::Rook) => is_rook_semilegal(mv.src, mv.dst, b.all),
                 Some(Piece::Queen) => {
-                    is_bishop_semilegal(mv.src, mv.dst, b.all) || is_rook_semilegal(mv.src, mv.dst, b.all)
+                    is_bishop_semilegal(mv.src, mv.dst, b.all)
+                        || is_rook_semilegal(mv.src, mv.dst, b.all)
                 }
                 Some(Piece::Knight) => (attack::knight(mv.src) & dst).is_nonempty(),
                 Some(Piece::King) => (attack::king(mv.src) & dst).is_nonempty(),
@@ -934,7 +935,7 @@ pub fn is_move_semilegal(b: &Board, mv: Move) -> bool {
 ///
 /// The move must be semilegal, otherwise the behavior is undefined.
 pub unsafe fn is_move_legal_unchecked(b: &Board, mv: Move) -> bool {
-    Checker::from(b).is_legal(mv)
+    Checker::new(b, NilPrechecker).is_legal(mv)
 }
 
 /// Validates whether move `mv` is semilegal from position `b`

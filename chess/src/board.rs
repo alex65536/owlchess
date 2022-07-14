@@ -457,6 +457,16 @@ impl Board {
     }
 
     #[inline]
+    pub(crate) fn piece_diag(&self, c: Color) -> Bitboard {
+        self.piece2(c, Piece::Bishop) | self.piece2(c, Piece::Queen)
+    }
+
+    #[inline]
+    pub(crate) fn piece_line(&self, c: Color) -> Bitboard {
+        self.piece2(c, Piece::Rook) | self.piece2(c, Piece::Queen)
+    }
+
+    #[inline]
     pub(crate) fn piece_mut(&mut self, c: Cell) -> &mut Bitboard {
         unsafe { self.pieces.get_unchecked_mut(c.index()) }
     }
@@ -511,6 +521,13 @@ impl Board {
     pub fn is_check(&self) -> bool {
         let c = self.r.side;
         movegen::is_cell_attacked(self, self.king_pos(c), c.inv())
+    }
+
+    /// Returns all the pieces that give check currently
+    #[inline]
+    pub fn checkers(&self) -> Bitboard {
+        let c = self.r.side;
+        movegen::cell_attackers(self, self.king_pos(c), c.inv())
     }
 
     /// Returns `true` if the position is guaranteed to be drawn because of insufficient material, regardless

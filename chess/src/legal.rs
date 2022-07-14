@@ -2,23 +2,116 @@ use crate::bitboard::Bitboard;
 use crate::board::Board;
 use crate::moves::{Move, MoveKind};
 use crate::types::{Color, Coord, Piece};
-use crate::{attack, geometry};
+use crate::{attack, between, geometry};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Checker<'a> {
+pub trait Prechecker {
+    fn is_legal_pre(&self, mv: Move) -> Option<bool>;
+}
+
+#[derive(Clone, Debug)]
+pub struct NilPrechecker;
+
+impl Prechecker for NilPrechecker {
+    #[inline]
+    fn is_legal_pre(&self, _mv: Move) -> Option<bool> {
+        None
+    }
+}
+
+#[derive(Clone, Debug)]
+enum PrecheckData {
+    Check,
+    NotCheck {
+        pinned_or_king: Bitboard,
+    },
+}
+
+#[derive(Clone, Debug)]
+pub struct DefaultPrechecker(PrecheckData);
+
+impl DefaultPrechecker {
+    fn bishop_xray(b: &Board, ours: Bitboard, king: Coord) -> Bitboard {
+        let near = attack::bishop(king, b.all) & ours;
+        attack::bishop(king, b.all ^ near)
+    }
+
+    fn rook_xray(b: &Board, ours: Bitboard, king: Coord) -> Bitboard {
+        let near = attack::rook(king, b.all) & ours;
+        attack::rook(king, b.all ^ near)
+    }
+
+    fn pinned(b: &Board, side: Color, king: Coord) -> Bitboard {
+        let mut pinned = Bitboard::EMPTY;
+        let ours = b.color(side);
+
+        let pinners = Self::bishop_xray(b, ours, king) & b.piece_diag(side.inv());
+        for p in pinners {
+            pinned |= between::bishop_strict(p, king) & ours;
+        }
+
+        let pinners = Self::rook_xray(b, ours, king) & b.piece_line(side.inv());
+        for p in pinners {
+            pinned |= between::rook_strict(p, king) & ours;
+        }
+
+        pinned
+    }
+
+    pub fn new(b: &Board) -> DefaultPrechecker {
+        if b.is_check() {
+            return DefaultPrechecker(PrecheckData::Check);
+        }
+
+        let side = b.r.side;
+        let king = b.king_pos(side);
+        DefaultPrechecker(PrecheckData::NotCheck {
+            pinned_or_king: Self::pinned(b, side, king) | Bitboard::from_coord(king),
+        })
+    }
+}
+
+impl Prechecker for DefaultPrechecker {
+    #[inline]
+    fn is_legal_pre(&self, mv: Move) -> Option<bool> {
+        match self.0 {
+            PrecheckData::Check => {
+                // Check evasions need to be handled separately. We could consider the different
+                // cases and detect legality right here (bypassing `Checker`), but those things
+                // turn out to slow down the implementation on perft. So, just return `None` and
+                // remember that checks are usually rare.
+                None
+            }
+            PrecheckData::NotCheck { pinned_or_king } => {
+                if !pinned_or_king.has(mv.src()) {
+                    // The piece is not pinned and is not a king, so the move is definitely legal.
+                    Some(true)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Checker<'a, P> {
     src: &'a Board,
+    pre: P,
     side: Color,
     king: Coord,
     all: Bitboard,
     opponent_pieces: [Bitboard; Piece::COUNT],
 }
 
-impl<'a> From<&'a Board> for Checker<'a> {
-    fn from(src: &'a Board) -> Self {
+struct Undo(Option<Piece>);
+
+impl<'a, P: Prechecker> Checker<'a, P> {
+    pub fn new(src: &'a Board, pre: P) -> Self {
         let side = src.r.side;
         let inv = side.inv();
         Self {
             src,
+            pre,
             side,
             king: src.king_pos(side),
             all: src.all,
@@ -32,11 +125,7 @@ impl<'a> From<&'a Board> for Checker<'a> {
             ],
         }
     }
-}
 
-struct Undo(Option<Piece>);
-
-impl<'a> Checker<'a> {
     fn opponent(&self, p: Piece) -> Bitboard {
         unsafe { *self.opponent_pieces.get_unchecked(p.index()) }
     }
@@ -124,7 +213,12 @@ impl<'a> Checker<'a> {
         self.do_make_move(mv);
     }
 
+    #[inline]
     pub fn is_legal(&mut self, mv: Move) -> bool {
+        if let Some(ok) = self.pre.is_legal_pre(mv) {
+            return ok;
+        }
+
         if mv.src() == self.king {
             let src = Bitboard::from_coord(mv.src());
             self.all ^= src;

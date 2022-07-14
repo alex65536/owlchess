@@ -2,7 +2,7 @@
 
 use crate::bitboard::Bitboard;
 use crate::board::Board;
-use crate::legal::Checker;
+use crate::legal::{Checker, DefaultPrechecker};
 use crate::moves::{Move, MoveKind, PromotePiece};
 use crate::types::{CastlingSide, Cell, Color, Coord, File, Piece};
 use crate::{attack, bitboard_consts, castling, generic, geometry, pawns};
@@ -13,14 +13,6 @@ use std::ops::{Deref, DerefMut};
 use std::slice;
 
 use arrayvec::ArrayVec;
-
-fn diag_pieces(b: &Board, c: Color) -> Bitboard {
-    b.piece2(c, Piece::Bishop) | b.piece2(c, Piece::Queen)
-}
-
-fn line_pieces(b: &Board, c: Color) -> Bitboard {
-    b.piece2(c, Piece::Rook) | b.piece2(c, Piece::Queen)
-}
 
 pub(crate) fn do_is_cell_attacked<C: generic::Color>(b: &Board, coord: Coord) -> bool {
     // Here, we use black attack map for white, as we need to trace the attack from destination piece,
@@ -36,8 +28,8 @@ pub(crate) fn do_is_cell_attacked<C: generic::Color>(b: &Board, coord: Coord) ->
     }
 
     // Far attacks
-    (attack::bishop(coord, b.all) & diag_pieces(b, C::COLOR)).is_nonempty()
-        || (attack::rook(coord, b.all) & line_pieces(b, C::COLOR)).is_nonempty()
+    (attack::bishop(coord, b.all) & b.piece_diag(C::COLOR)).is_nonempty()
+        || (attack::rook(coord, b.all) & b.piece_line(C::COLOR)).is_nonempty()
 }
 
 fn do_cell_attackers<C: generic::Color>(b: &Board, coord: Coord) -> Bitboard {
@@ -45,8 +37,8 @@ fn do_cell_attackers<C: generic::Color>(b: &Board, coord: Coord) -> Bitboard {
     (b.piece2(C::COLOR, Piece::Pawn) & pawn_attacks)
         | (b.piece2(C::COLOR, Piece::King) & attack::king(coord))
         | (b.piece2(C::COLOR, Piece::Knight) & attack::knight(coord))
-        | (attack::bishop(coord, b.all) & diag_pieces(b, C::COLOR))
-        | (attack::rook(coord, b.all) & line_pieces(b, C::COLOR))
+        | (attack::bishop(coord, b.all) & b.piece_diag(C::COLOR))
+        | (attack::rook(coord, b.all) & b.piece_line(C::COLOR))
 }
 
 /// Returns true if the square `coord` is attacked by pieces of color `color`
@@ -185,14 +177,14 @@ impl MovePush for UnsafeMoveList {
 }
 
 struct LegalFilter<'a, P> {
-    checker: Checker<'a>,
+    checker: Checker<'a, DefaultPrechecker>,
     inner: &'a mut P,
 }
 
 impl<'a, P: MaybeMovePush> LegalFilter<'a, P> {
     fn new(board: &'a Board, inner: &'a mut P) -> Self {
         Self {
-            checker: board.into(),
+            checker: Checker::new(board, DefaultPrechecker::new(board)),
             inner,
         }
     }
@@ -392,12 +384,16 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
     }
 
     fn gen_brq<const SIMPLE: bool, const CAPTURE: bool>(&mut self) -> Result<(), P::Err> {
-        self.do_gen_brq::<SIMPLE, CAPTURE, true>(diag_pieces(self.board, C::COLOR))?;
-        self.do_gen_brq::<SIMPLE, CAPTURE, false>(line_pieces(self.board, C::COLOR))?;
+        self.do_gen_brq::<SIMPLE, CAPTURE, true>(self.board.piece_diag(C::COLOR))?;
+        self.do_gen_brq::<SIMPLE, CAPTURE, false>(self.board.piece_line(C::COLOR))?;
         Ok(())
     }
 
     fn gen_castling(&mut self) -> Result<(), P::Err> {
+        if !self.board.r.castling.has_color(C::COLOR) {
+            return Ok(());
+        }
+
         let rank = geometry::castling_rank(C::COLOR);
         if self.board.r.castling.has(C::COLOR, CastlingSide::King) {
             let pass = castling::pass(C::COLOR, CastlingSide::King);
@@ -427,6 +423,7 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
                 }
             }
         }
+
         Ok(())
     }
 
@@ -638,7 +635,10 @@ pub mod semilegal {
 /// be sometimes much faster.
 pub mod legal {
     use super::MoveList;
-    use crate::{board::Board, legal::Checker};
+    use crate::{
+        board::Board,
+        legal::{Checker, DefaultPrechecker},
+    };
 
     macro_rules! do_impl {
         ($($(#[$attr:meta])* $name:ident;)*) => {
@@ -646,7 +646,7 @@ pub mod legal {
                 $(#[$attr])*
                 pub fn $name(b: &Board) -> MoveList {
                     let mut res = super::semilegal::$name(b);
-                    let mut checker = Checker::from(b);
+                    let mut checker = Checker::new(b, DefaultPrechecker::new(b));
                     res.retain(|&mut mv| checker.is_legal(mv));
                     res
                 }
