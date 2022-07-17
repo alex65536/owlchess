@@ -210,6 +210,14 @@ mod magic {
         const NAME: &'static str;
         const SHIFTS: &'static [(isize, isize)];
 
+        /// If `None`, then the magics are generated automatically in this build script, slowing it down.
+        /// Otherwise, the build takes pre-generated magics from here and just validates them. Note that
+        /// in this case, it is still impossible to build with incorrect magics.
+        ///
+        /// Generating magics takes ~20 seconds of build time if the build script runs unoptimized. So,
+        /// `BishopMagic` and `RookMagic` implementations of this trait use pre-generated tables.
+        const MAGICS: Option<[u64; 64]>;
+
         fn build_mask(c: Coord) -> Bitboard;
         fn build_post_mask(c: Coord) -> Bitboard;
 
@@ -234,6 +242,18 @@ mod magic {
     impl Magic for RookMagic {
         const NAME: &'static str = "ROOK";
         const SHIFTS: &'static [(isize, isize)] = &[(0, 1), (0, -1), (-1, 0), (1, 0)];
+
+        #[rustfmt::skip]
+        const MAGICS: Option<[u64; 64]> = Some([
+            0x24800140001480a0, 0x0040002001409002, 0x0080200010008088, 0x0080048210010800, 0x0080040102804800, 0x0080020004008009, 0x2080010021800a00, 0xa08004418004a900,
+            0x81008000e0400094, 0x0264c00460085001, 0x0185004100142003, 0x60020010200a0040, 0x6021000411000801, 0x0182000890046200, 0x1404000204084510, 0x0082801a40800100,
+            0x08108c8000204000, 0x0d20010100804000, 0x02d0002004002802, 0x8008008030000a80, 0x0000110004480100, 0x0085808024002200, 0x10a8410100040200, 0x40008200008401c3,
+            0x004004888000416d, 0x09201000400029c0, 0x5120080040401000, 0x0001002100100108, 0x82080008800c0080, 0x0016000200481114, 0x0100080400611002, 0x0231000100034282,
+            0x5208814010800020, 0x06ca884102002200, 0x0001002001001040, 0x0010010008080080, 0x4000080080800400, 0x0800040080800200, 0x0000500a0c000801, 0x0000a88402000041,
+            0x4108804000208000, 0x0009402010004001, 0x0002100020008080, 0x00d2002029420010, 0x10c2000408120020, 0x0002000448920010, 0x1010220001008080, 0x0000440440820001,
+            0x0904e08000400080, 0x005100608a400100, 0x0081004020001500, 0x2214218812004200, 0x8000a50010080100, 0x4042001004480200, 0x0400083082490400, 0x9020404420850200,
+            0x0020430010218001, 0x4201810020104001, 0x2020002100408891, 0x000010002c210901, 0x0002000c20381002, 0x10050002080c0001, 0x180a008308102204, 0x8000104082a30402,
+        ]);
 
         fn build_mask(c: Coord) -> Bitboard {
             ((bitboard_consts::file(c.file()) & !FILE_FRAME)
@@ -266,6 +286,18 @@ mod magic {
     impl Magic for BishopMagic {
         const NAME: &'static str = "BISHOP";
         const SHIFTS: &'static [(isize, isize)] = &[(-1, 1), (-1, -1), (1, -1), (1, 1)];
+
+        #[rustfmt::skip]
+        const MAGICS: Option<[u64; 64]> = Some([
+            0x0420140106022200, 0x0010040808c64000, 0x0031030602040400, 0x0004440289000402, 0x8801104084200242, 0x24010120100c2512, 0x2080a40108400742, 0x0802004402080284,
+            0x4a400404840c2408, 0x0580180101040300, 0x0860284802408080, 0x0010482a04201480, 0x4821042420000400, 0x0040020202208100, 0x04000c010108220c, 0x0902020202096c0a,
+            0x40c8454222040400, 0x0008006002040046, 0x80100044440020c0, 0x0888000406420800, 0x000c000081a00200, 0x0002002109052009, 0x011cc04088045000, 0x0058a00101081200,
+            0x0008880040100122, 0x0050306004050200, 0x0280300002028a00, 0x1020080081004208, 0x04008a0004010404, 0x8114010130900480, 0x0201040802020140, 0x4012002100c70810,
+            0x0048041000401210, 0x06008809000c1030, 0x08a4020108a20400, 0x1400200800010504, 0x0701440400014100, 0x1000848100020110, 0x0041820088620800, 0x0411061a0054804a,
+            0x028a012088002011, 0x1100840120240880, 0xa083003802040404, 0x140002023401a200, 0x4000c81d00400c00, 0x0002408107000200, 0x002d081800401104, 0x8009010102108100,
+            0x7892024220040208, 0x0040410088200282, 0x1128082211101001, 0x0200100220880010, 0x1022401022020000, 0x002820600e008248, 0x0840080604004100, 0x0804054806008404,
+            0x0005240402015000, 0x1000629401080201, 0xa000080080882110, 0x20000010808c0400, 0x0408c04a40028220, 0x0180066244100080, 0x40140a06080a0400, 0x0040418109020080,
+        ]);
 
         fn build_mask(c: Coord) -> Bitboard {
             (bitboard_consts::DIAG[c.diag()] ^ bitboard_consts::ANTIDIAG[c.antidiag()])
@@ -326,6 +358,13 @@ mod magic {
     }
 
     fn gen_magic_consts<M: Magic, R: RngCore>(r: &mut R) -> [u64; 64] {
+        if let Some(res) = M::MAGICS {
+            for c in Coord::iter() {
+                assert!(is_valid_magic_const::<M>(c, res[c.index()]));
+            }
+            return res;
+        }
+
         let mut res = [0; 64];
         for c in Coord::iter() {
             let cur = &mut res[c.index()];
@@ -426,10 +465,9 @@ mod magic {
     pub fn gen(out_path: &Path) -> io::Result<()> {
         let f = fs::File::create(out_path)?;
         let mut w = BufWriter::new(&f);
-        let mut r = super::default_gen();
-        gen_magic_tables::<BishopMagic, _, _>(&mut w, &mut r)?;
+        gen_magic_tables::<BishopMagic, _, _>(&mut w, &mut super::default_gen())?;
         writeln!(w)?;
-        gen_magic_tables::<RookMagic, _, _>(&mut w, &mut r)?;
+        gen_magic_tables::<RookMagic, _, _>(&mut w, &mut super::default_gen())?;
         Ok(())
     }
 }
