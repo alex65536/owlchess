@@ -50,6 +50,9 @@ pub mod chain;
 pub mod movegen;
 pub mod moves;
 
+#[cfg(feature = "selftest")]
+pub mod selftest;
+
 use owlchess_base::bitboard_consts;
 use owlchess_base::geometry;
 

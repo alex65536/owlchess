@@ -1,10 +1,6 @@
 name: Build
 
-on:
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
@@ -21,6 +17,15 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose --features selftest
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --verbose --features selftest
+    - name: Run tests from chess_bench
+      run: |
+        cd ..
+        git clone https://github.com/alex65536/chess_bench
+        mkdir chess_bench/.cargo
+        echo '[patch.crates-io]' > chess_bench/.cargo/config.toml
+        echo 'owlchess = { path = ${{ toJSON(format('{0}/chess', github.workspace)) }} }' >> chess_bench/.cargo/config.toml
+        cd chess_bench
+        cargo test --verbose
