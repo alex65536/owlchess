@@ -210,12 +210,16 @@ pub enum CreateError {
 
 impl Move {
     /// Null move
-    pub const NULL: Move = Move {
-        kind: MoveKind::Null,
-        src: Coord::from_index(0),
-        dst: Coord::from_index(0),
-        side: None,
-    };
+    pub const NULL: Move = Move::null();
+
+    const fn null() -> Self {
+        Self {
+            kind: MoveKind::Null,
+            src: Coord::from_index(0),
+            dst: Coord::from_index(0),
+            side: None,
+        }
+    }
 
     /// Creates a castling move made by `color` with side `side`
     #[inline]
