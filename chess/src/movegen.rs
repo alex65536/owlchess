@@ -46,7 +46,7 @@ fn do_cell_attackers<C: generic::Color>(b: &Board, coord: Coord) -> Bitboard {
 /// Suppose that the piece on the position `coord` is replaced by a piece of
 /// color opposite to `color`, and `color` is to move. Then, the function checks
 /// if the side `color` is able to capture the piece on the position `coord` via
-/// a pseudo-legal move.
+/// a semilegal move.
 ///
 /// This function does the same as `cell_attackers(b, coord, color).is_nonempty()`.
 ///
@@ -64,7 +64,7 @@ pub fn is_cell_attacked(b: &Board, coord: Coord, color: Color) -> bool {
 /// Suppose that the piece on the position `coord` is replaced by a piece of
 /// color opposite to `color`, and `color` is to move. Then, the function enumerates
 /// all the pieces of the side `color` which are able to capture the piece on the
-/// position `coord` via a pseudo-legal move.
+/// position `coord` via a semilegal move.
 ///
 /// **Note**: this function doesn't consider enpassant a capture.
 pub fn cell_attackers(b: &Board, coord: Coord, color: Color) -> Bitboard {
