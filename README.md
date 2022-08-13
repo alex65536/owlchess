@@ -112,24 +112,44 @@ as dependency.
 ## Comparison with other crates
 
 There are two well-known chess crates in Rust: [`chess`](https://github.com/jordanbray/chess) and
-[`shakmaty`](https://github.com/niklasf/shakmaty).
+[`shakmaty`](https://github.com/niklasf/shakmaty). These crates are compared with `owlchess` below.
 
-Compared to `chess`, `owlchess` provides more features (e.g. distinction between various game
-outcomes, draws by insufficient material, formatting moves into SAN). Also `owlchess` gives more
-safety, disallowing you to make an illegal move. On the other side, `chess` provides a fast legal
-move generator, while `owlchess` currently has a fast pseudo-legal move generator, but slow legal
-move generator. Still, this issue is not very serious when writing a chess engine. Also, `owlchess`
-has more details errors returning from functions.
+### Comparison with `chess`
 
-The crate `shakmaty` has support for many different chess variants, which is missing is `owlchess`.
-Also, it contains almost all the useful features of `owlchess`. On the other side, `owlchess` is
-simpler (as it supports only regular chess), supports draw by repetitions and allows you to
-distinguish between various game results. Other upside of `owlchess` is that it's MIT-licensed,
-while `shakmaty` uses GPLv3.
+Compared to `chess`, `owlchess` provides more features:
+
+- distinction between various game outcomes
+- draw by insufficient material
+- formatting SAN moves
+- more safety: the board is guaranteed to be valid, as you cannot make an illegal move without `unsafe`
+- more detailed errors in case of failures
+
+Still, `chess` has some advantages:
+
+- faster legal move generator (`owlchess` relies on fast semilegal move generator instead)
+- more mature code base
+
+But, in many applications, it's enough to have a fast semilegal move generator and fast move validation, so
+real difference in performance may be less than expected.
+
+### Comparison with `shakmaty`
+
+Compared to `shakmaty`, `owlchess` has the following advantages:
+
+- more safety: the board is guaranteed to be valid, as you cannot make an illegal move without `unsafe`
+- has support for draw by repetitions
+- uses more liberal MIT license instead of GPLv3
+
+Still, `shakmaty` has some advantages:
+
+- faster legal move generator
+- moves are applied faster (especially if Zobrist hashing is not used)
+- supports many chess variants
 
 ### Benchmarks
 
-TODO
+There is a [separate repo](https://github.com/alex65536/chess_bench) with benchmarks for different
+chess implementations in Rust.
 
 ## License
 
