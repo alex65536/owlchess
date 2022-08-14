@@ -1,6 +1,6 @@
 //! Types to apply the moves and move-like objects
 //!
-//! This module contains a trait `[Make]` and its implementations. Each implementation of this
+//! This module contains a trait [`Make`] and its implementations. Each implementation of this
 //! trait can be applied as a move.
 
 use super::base::{self, Move, RawUndo, ValidateError};
