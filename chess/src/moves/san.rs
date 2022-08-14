@@ -610,7 +610,7 @@ pub enum CheckMark {
     /// Double check (a.k.a "++")
     ///
     /// This one is not set while converting the move into SAN and is used primarily for parsing.
-    /// Note that in some notations "++" may denote checkmate, but it's still parsed as [`CheckMark::double`].
+    /// Note that in some notations "++" may denote checkmate, but it's still parsed as [`CheckMark::Double`].
     Double,
     /// Checkmate (a.k.a "#")
     Checkmate,
