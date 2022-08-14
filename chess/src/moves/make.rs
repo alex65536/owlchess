@@ -57,8 +57,8 @@ impl Unchecked {
     ///
     /// # Safety
     ///
-    /// You must guarantee that this move will be applied only to the position when this move is legal
-    /// or null, and null moves are allowed only if the king is not is check. Applying this move to other
+    /// You must guarantee that this move will be applied only to positions where it is legal or null,
+    /// and null moves are allowed only if the king is not is check. Applying this move to other
     /// positions is considered undefined behaviour.
     #[inline]
     pub unsafe fn new(mv: Move) -> Self {
@@ -92,8 +92,8 @@ impl TryUnchecked {
     ///
     /// # Safety
     ///
-    /// You must guarantee that this move will be applied only to the position when this move is legal
-    /// or null, otherwise the behavior is undefined.
+    /// You must guarantee that this move will be applied only to positions where it is legal or null,
+    /// otherwise the behavior is undefined.
     #[inline]
     pub unsafe fn new(mv: Move) -> Self {
         Self(mv)
