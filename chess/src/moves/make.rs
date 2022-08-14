@@ -32,7 +32,7 @@ pub unsafe trait Make {
     /// or [`TryUnchecked`]) also allow making null moves.
     fn make_raw(&self, board: &mut Board) -> Result<(Move, RawUndo), Self::Err>;
 
-    /// Applied the move to the board `board`
+    /// Applies the move to the board `board`
     ///
     /// Returns the new board after applying the given move.
     ///
