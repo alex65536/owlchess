@@ -14,7 +14,7 @@
 //!
 //! ```
 //! # use owlchess::{Board, MoveChain};
-//! use owlchess::moves::make;
+//! # use owlchess::moves::make;
 //!
 //! // Create an empty chain from the empty position
 //! let mut chain = MoveChain::new_initial();
