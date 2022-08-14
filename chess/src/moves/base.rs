@@ -284,16 +284,40 @@ impl Move {
         Ok(san::Move::from_str(s)?.into_move(b)?)
     }
 
+    /// Returns `true` if the move is semilegal
+    pub fn is_semilegal(&self, b: &Board) -> bool {
+        match b.r.side {
+            Color::White => do_is_move_semilegal::<generic::White>(b, *self),
+            Color::Black => do_is_move_semilegal::<generic::Black>(b, *self),
+        }
+    }
+
+    /// Returns `true` if the move is legal
+    ///
+    /// # Safety
+    ///
+    /// The move must be semilegal, otherwise the behavior is undefined.
+    pub unsafe fn is_legal_unchecked(&self, b: &Board) -> bool {
+        Checker::new(b, NilPrechecker).is_legal(*self)
+    }
+
     /// Validates whether this move is semilegal from position `b`
     #[inline]
     pub fn semi_validate(&self, b: &Board) -> Result<(), ValidateError> {
-        semi_validate(b, *self)
+        if !self.is_semilegal(b) {
+            return Err(ValidateError::NotSemiLegal);
+        }
+        Ok(())
     }
 
     /// Validates whether this move is legal from position `b`
     #[inline]
     pub fn validate(&self, b: &Board) -> Result<(), ValidateError> {
-        validate(b, *self)
+        self.semi_validate(b)?;
+        match unsafe { self.is_legal_unchecked(b) } {
+            true => Ok(()),
+            false => Err(ValidateError::NotLegal),
+        }
     }
 
     /// Creates a new non-null move from its raw parts and validates it for well-formedness
@@ -903,42 +927,6 @@ fn do_is_move_semilegal<C: generic::Color>(b: &Board, mv: Move) -> bool {
     }
 }
 
-/// Returns `true` if the move is semilegal
-pub fn is_move_semilegal(b: &Board, mv: Move) -> bool {
-    match b.r.side {
-        Color::White => do_is_move_semilegal::<generic::White>(b, mv),
-        Color::Black => do_is_move_semilegal::<generic::Black>(b, mv),
-    }
-}
-
-/// Returns `true` if the move is legal
-///
-/// # Safety
-///
-/// The move must be semilegal, otherwise the behavior is undefined.
-pub unsafe fn is_move_legal_unchecked(b: &Board, mv: Move) -> bool {
-    Checker::new(b, NilPrechecker).is_legal(mv)
-}
-
-/// Validates whether move `mv` is semilegal from position `b`
-#[inline]
-pub fn semi_validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
-    if !is_move_semilegal(b, mv) {
-        return Err(ValidateError::NotSemiLegal);
-    }
-    Ok(())
-}
-
-/// Validates whether move `mv` is legal from position `b`
-#[inline]
-pub fn validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
-    semi_validate(b, mv)?;
-    match unsafe { is_move_legal_unchecked(b, mv) } {
-        true => Ok(()),
-        false => Err(ValidateError::NotLegal),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1088,19 +1076,19 @@ mod tests {
                 .unwrap();
 
         let m = Move::from_uci("e1c1", &b).unwrap();
-        assert!(!is_move_semilegal(&b, m));
+        assert!(!m.is_semilegal(&b));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSemiLegal));
 
         let m = Move::from_uci("b5e8", &b).unwrap();
-        assert!(!is_move_semilegal(&b, m));
+        assert!(!m.is_semilegal(&b));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSemiLegal));
 
         let m = Move::from_uci("a3a4", &b).unwrap();
-        assert!(!is_move_semilegal(&b, m));
+        assert!(!m.is_semilegal(&b));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSemiLegal));
 
         let m = Move::from_uci("e1d1", &b).unwrap();
-        assert!(!is_move_semilegal(&b, m));
+        assert!(!m.is_semilegal(&b));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSemiLegal));
 
         assert_eq!(

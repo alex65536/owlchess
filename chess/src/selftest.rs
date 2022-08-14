@@ -105,9 +105,9 @@ pub fn selftest(b: &Board) {
     legals1.sort_by_key(move_key);
 
     // Check that legal moves are determined correctly in three ways
-    // (`is_opponent_king_attacked`, `is_move_legal_unchecked` and legal movegen).
+    // (`is_opponent_king_attacked`, `Move::is_legal_unchecked` and legal movegen).
     let mut legals2 = moves;
-    legals2.retain(|mv| unsafe { moves::is_move_legal_unchecked(b, *mv) });
+    legals2.retain(|mv| unsafe { mv.is_legal_unchecked(b) });
     legals2.sort_by_key(move_key);
 
     let mut legals3 = legal::gen_all(b);

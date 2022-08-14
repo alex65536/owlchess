@@ -129,13 +129,13 @@ unsafe impl Make for Move {
 
     #[inline]
     fn make_raw(&self, board: &mut Board) -> Result<(Move, RawUndo), Self::Err> {
-        base::semi_validate(board, *self)?;
+        self.semi_validate(board)?;
         unsafe { TryUnchecked::new(*self) }.make_raw(board)
     }
 
     #[inline]
     fn make(&self, board: &Board) -> Result<Board, Self::Err> {
-        base::semi_validate(board, *self)?;
+        self.semi_validate(board)?;
         unsafe { TryUnchecked::new(*self) }.make(board)
     }
 }
