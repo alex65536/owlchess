@@ -178,9 +178,8 @@ impl MoveKind {
 ///
 /// Note that this kind of moves is a special one.
 ///
-/// As stated above, it is well-formed but not semilegal. So, it is not accepted by safe function [`make_move()`],
-/// but is accepted like a semilegal move by unsafe functions (such as [`make_move_unchecked()`] or
-/// [`try_make_move_unchecked()`]).
+/// As stated above, it is well-formed but not semilegal. So, it is not accepted by safe functions, but is accepted
+/// as a semilegal move by unsafe functions (such as [`make_move_unchecked()`]).
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Move {
     kind: MoveKind,
@@ -810,7 +809,7 @@ pub unsafe fn make_move_unchecked(b: &mut Board, mv: Move) -> RawUndo {
 /// after such operation, then this `b_old` is returned. Otherwise, the behavior is undefined.
 ///
 /// In simpler words, you may invoke this function only from the position occured after the
-/// corresponing call to [`make_move_unchecked()`] or [`try_make_move_unchecked()`].
+/// corresponing call to [`make_move_unchecked()`] or [`Make::make_raw()`](super::Make::make_raw).
 ///
 /// Note that `b` can be an invalid position, so you can roll back an illegal move. See docs for
 /// [`Board`] or [`make_move_unchecked()`] for more details.

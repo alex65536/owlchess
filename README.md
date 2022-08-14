@@ -25,8 +25,8 @@ which is a fast way to generate moves and determine whether the king is in check
 
 _Safe_: the library prevents you from creating an invalid board or making an invalid move. While such
 safety is usually a good thing, it is enforces by runtime checks, which can slow down your program. For
-example, validation is `owlchess::moves::make_move` makes this function about 30-50% slower. So, if
-performance really matters, you may use unsafe APIs for speedup.
+example, validation in `owlchess::Move::make` makes this function about 30-50% slower. So, if performance
+really matters, you may use unsafe APIs for speedup.
 
 ## Examples
 
@@ -74,17 +74,17 @@ The example below illustrates a `MoveChain`, which represents a chess game. Unli
 the history of moves and is able to detect draw by repetitions.
 
 ```rust
-use owlchess::{Outcome, types::OutcomeFilter, Color, WinReason, MoveChain};
+use owlchess::{Outcome, moves::make::Uci, types::OutcomeFilter, Color, WinReason, MoveChain};
 
 fn main() {
     // Create a `MoveChain` from initial position
     let mut chain = MoveChain::new_initial();
 
     // Push the moves into `MoveChain` as UCI strings
-    chain.push_uci("g2g4").unwrap();
-    chain.push_uci("e7e5").unwrap();
-    chain.push_uci("f2f3").unwrap();
-    chain.push_uci("d8h4").unwrap();
+    chain.push(Uci("g2g4")).unwrap();
+    chain.push(Uci("e7e5")).unwrap();
+    chain.push(Uci("f2f3")).unwrap();
+    chain.push(Uci("d8h4")).unwrap();
 
     // Calculate current game outcome
     chain.set_auto_outcome(OutcomeFilter::Strict);
