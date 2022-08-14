@@ -68,7 +68,7 @@ pub use bitboard::Bitboard;
 pub use board::{Board, RawBoard};
 pub use chain::MoveChain;
 pub use movegen::{MoveList, MovePush};
-pub use moves::{Move, MoveKind};
+pub use moves::{Make, Move, MoveKind};
 pub use types::{
     CastlingRights, CastlingSide, Cell, Color, Coord, DrawReason, File, GameStatus, Outcome, Piece,
     Rank, WinReason,

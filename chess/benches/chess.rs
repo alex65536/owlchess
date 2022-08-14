@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use owlchess::{
     movegen::{self, semilegal},
-    moves, Board, Color, Coord,
+    moves, Board, Color, Coord, Make,
 };
 
 const BOARDS: [(&'static str, &'static str); 10] = [
@@ -80,7 +80,7 @@ fn bench_make_move_checked(c: &mut Criterion) {
             b.iter(|| {
                 for mv in &moves {
                     black_box(
-                        moves::make_move(&board, *mv)
+                        mv.make(&board)
                             .as_ref()
                             .map(|b| b.zobrist_hash())
                             .unwrap_or(0),
@@ -98,7 +98,7 @@ fn bench_is_move_semilegal(c: &mut Criterion) {
         group.bench_function(name, |b| {
             b.iter(|| {
                 for mv in &moves {
-                    black_box(moves::is_move_semilegal(&board, *mv));
+                    black_box(mv.is_semilegal(&board));
                 }
             })
         });
