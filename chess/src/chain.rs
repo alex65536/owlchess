@@ -14,12 +14,13 @@
 //!
 //! ```
 //! # use owlchess::{Board, MoveChain};
-//! #
+//! use owlchess::moves::make;
+//!
 //! // Create an empty chain from the empty position
 //! let mut chain = MoveChain::new_initial();
 //!
 //! // Push d2d4 move
-//! chain.push_uci("d2d4").unwrap();
+//! chain.push(make::Uci("d2d4")).unwrap();
 //! assert_eq!(
 //!     chain.last().to_string(),
 //!     "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1".to_string(),
@@ -30,15 +31,15 @@
 //! assert_eq!(chain.last(), &Board::initial());
 //!
 //! // Push other moves
-//! chain.push_uci("e2e4").unwrap();
-//! chain.push_uci("e7e5").unwrap();
+//! chain.push(make::Uci("e2e4")).unwrap();
+//! chain.push(make::Uci("e7e5")).unwrap();
 //!
 //! // Get notation as a UCI move sequence
 //! assert_eq!(chain.uci().to_string(), "e2e4 e7e5".to_string());
 //! ```
 
 use crate::board::{self, Board, RawBoard};
-use crate::moves::{self, san, uci, Move, RawUndo, ValidateError};
+use crate::moves::{self, make, Make, Move, RawUndo};
 use crate::types::{Color, DrawReason, GameStatus, Outcome, OutcomeFilter};
 
 use std::collections::HashMap;
@@ -327,62 +328,22 @@ impl<R: Repeat> BaseMoveChain<R> {
     /// # Safety
     ///
     /// The move must be either legal or null, and the move cannot be null if the king is in
-    /// check. Otherwise, the behavior is undefined.
+    /// check. Also, game outcome must be unset. Otherwise, the behavior is undefined.
     #[inline]
     pub unsafe fn push_unchecked(&mut self, mv: Move) {
         let u = moves::make_move_unchecked(&mut self.board, mv);
         self.do_finish_push(mv, u);
     }
 
-    /// Tries to push a semilegal move `mv` to the chain
+    /// Pushes a move-like object `m` to the chain
     ///
-    /// If the opponent's king is under attack after pushing `mv`, then the chain remains
-    /// unchanged and the error is returned.
-    ///
-    /// # Safety
-    ///
-    /// The move must be either semilegal or null. Otherwise, the behavior is undefined.
-    pub unsafe fn try_push_unchecked(&mut self, mv: Move) -> Result<(), ValidateError> {
-        let u = moves::try_make_move_unchecked(&mut self.board, mv)?;
-        self.do_finish_push(mv, u);
-        Ok(())
-    }
-
-    /// Pushes a move to the chain
-    ///
-    /// If the move if not legal, then it is not pushed, and the error is returned.
+    /// If `m` doesn't represent a legal move, then nothing is pushed, and the error
+    /// is returned.
     #[inline]
-    pub fn push(&mut self, mv: Move) -> Result<(), ValidateError> {
+    pub fn push<M: Make>(&mut self, m: M) -> Result<(), M::Err> {
         assert!(!self.is_finished());
-        mv.semi_validate(&self.board)?;
-        unsafe { self.try_push_unchecked(mv) }
-    }
-
-    /// Pushed a move repesented as a UCI string `s` to the chain
-    ///
-    /// If `s` doesn't represent a legal move, then nothing is pushed, and the error
-    /// is returned.
-    #[inline]
-    pub fn push_uci(&mut self, s: &str) -> Result<(), uci::ParseError> {
-        let mv = Move::from_uci_semilegal(s, &self.board)?;
-        unsafe {
-            self.try_push_unchecked(mv)
-                .map_err(uci::ParseError::Validate)?;
-        }
-        Ok(())
-    }
-
-    /// Pushed a move repesented as a SAN (Standard Algebraic Notation) string `s` to
-    /// the chain
-    ///
-    /// If `s` doesn't represent a legal move, then nothing is pushed, and the error
-    /// is returned.
-    #[inline]
-    pub fn push_san(&mut self, s: &str) -> Result<(), san::ParseError> {
-        let mv = Move::from_san(s, &self.board)?;
-        unsafe {
-            self.push_unchecked(mv);
-        }
+        let (mv, undo) = m.make_raw(&mut self.board)?;
+        self.do_finish_push(mv, undo);
         Ok(())
     }
 
@@ -396,7 +357,7 @@ impl<R: Repeat> BaseMoveChain<R> {
     /// [`UciParseError`].
     pub fn push_uci_list(&mut self, uci_list: &str) -> Result<(), UciParseError> {
         for (pos, token) in uci_list.split_ascii_whitespace().enumerate() {
-            self.push_uci(token)
+            self.push(make::Uci(token))
                 .map_err(|source| UciParseError { pos, source })?;
         }
         Ok(())
@@ -754,6 +715,7 @@ impl<'a, R: Repeat> fmt::Display for StyledList<'a, R> {
 mod tests {
     use super::*;
     use crate::board::Board;
+    use crate::moves::make;
     use crate::types::{DrawReason, Outcome, OutcomeFilter, WinReason};
 
     #[test]
@@ -771,7 +733,7 @@ mod tests {
         );
         assert_eq!(chain.len(), 0);
 
-        chain.push_uci("g8f6").unwrap();
+        chain.push(make::Uci("g8f6")).unwrap();
         assert_eq!(
             chain.last().as_fen(),
             "rnbqk2r/ppp1bppp/3p1n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 w kq - 4 5"
@@ -782,7 +744,7 @@ mod tests {
         );
         assert_eq!(chain.len(), 1);
 
-        chain.push_uci("d2d4").unwrap();
+        chain.push(make::Uci("d2d4")).unwrap();
         assert_eq!(
             chain.last().as_fen(),
             "rnbqk2r/ppp1bppp/3p1n2/4p3/2BPP3/5N2/PPP2PPP/RNBQ1RK1 b kq d3 0 5"
@@ -804,7 +766,7 @@ mod tests {
         );
         assert_eq!(chain.len(), 1);
 
-        chain.push_san("d4").unwrap();
+        chain.push(make::San("d4")).unwrap();
         assert_eq!(
             chain.last().as_fen(),
             "rnbqk2r/ppp1bppp/3p1n2/4p3/2BPP3/5N2/PPP2PPP/RNBQ1RK1 b kq d3 0 5"
@@ -908,7 +870,7 @@ mod tests {
             "e4", "e5", "Nf3", "d6", "Bc4", "Bg4", "Nc3", "g6", "Nxe5", "Bxd1", "Bxf7", "Ke7",
             "Nd5#",
         ] {
-            chain.push_san(mv).unwrap();
+            chain.push(make::San(mv)).unwrap();
         }
 
         let mut w = chain.walk();

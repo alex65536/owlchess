@@ -2,10 +2,12 @@
 
 mod base;
 
+pub mod make;
 pub mod san;
 pub mod uci;
 
 pub use base::*;
+pub use make::Make;
 
 /// Parsed move in SAN format
 ///

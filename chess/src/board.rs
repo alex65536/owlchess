@@ -1,7 +1,7 @@
 //! Board and related things
 
 use crate::bitboard::Bitboard;
-use crate::moves::{self, Move};
+use crate::moves::Make;
 use crate::types::{
     self, CastlingRights, CastlingSide, Cell, Color, Coord, DrawReason, File, Outcome, Piece, Rank,
     WinReason,
@@ -492,12 +492,9 @@ impl Board {
         self.hash
     }
 
-    /// Tries to apply move `mv` to the current board
-    ///
-    /// If `mv` is a legal move, then the new board with move `mv` is returned. Otherwise, an error
-    /// is returned.
-    pub fn make_move(&self, mv: Move) -> Result<Self, moves::ValidateError> {
-        moves::make_move(self, mv)
+    /// Convenience alias for [`moves::Make::make`](crate::moves::Make::make)
+    pub fn make_move<M: Make>(&self, m: M) -> Result<Self, M::Err> {
+        m.make(self)
     }
 
     /// Returns `true` if the opponent's king is under attack

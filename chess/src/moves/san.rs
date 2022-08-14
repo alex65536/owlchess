@@ -1,6 +1,7 @@
 //! Utilities to work with moves in SAN format
 
 use super::base::{self, CreateError, MoveKind, PromotePiece, ValidateError};
+use super::make::Make;
 use super::uci;
 use crate::bitboard::Bitboard;
 use crate::board::Board;
@@ -665,7 +666,7 @@ impl Move {
     /// Creates the parsed SAN from move `mv` in position `b`
     pub fn from_move(mv: base::Move, b: &Board) -> Result<Move, ValidateError> {
         let data = Data::from_move(mv, b);
-        let b_copy = base::make_move(b, mv)?;
+        let b_copy = mv.make(b)?;
         let check = if b_copy.is_check() {
             if movegen::has_legal_moves(&b_copy) {
                 Some(CheckMark::Single)

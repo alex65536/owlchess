@@ -821,27 +821,6 @@ pub unsafe fn unmake_move_unchecked(b: &mut Board, mv: Move, u: RawUndo) {
     }
 }
 
-/// Makes the move `mv` on the board `b`
-///
-/// If the move is not legal, an error is returned. However, if `mv` is a null move, then an
-/// error is returned if and only if the king is in check. In case of error, the board remains
-/// unchanged.
-///
-/// To allow unmaking the move, a `RawUndo` instance is returned. See [`unmake_move_unchecked()`] for the
-/// details on how to unmake a move.
-///
-/// # Safety
-///
-/// The move must be either semilegal or null, otherwise the behavior is undefined.
-pub unsafe fn try_make_move_unchecked(b: &mut Board, mv: Move) -> Result<RawUndo, ValidateError> {
-    let u = make_move_unchecked(b, mv);
-    if b.is_opponent_king_attacked() {
-        unmake_move_unchecked(b, mv, u);
-        return Err(ValidateError::NotLegal);
-    }
-    Ok(u)
-}
-
 fn is_bishop_semilegal(src: Coord, dst: Coord, all: Bitboard) -> bool {
     between::is_bishop_valid(src, dst) && (between::bishop_strict(src, dst) & all).is_empty()
 }
@@ -961,23 +940,11 @@ pub fn validate(b: &Board, mv: Move) -> Result<(), ValidateError> {
     }
 }
 
-/// Makes the move `mv` on the position `b` and returns the new position after making this move
-///
-/// If the move is not legal, an error is returned.
-pub fn make_move(b: &Board, mv: Move) -> Result<Board, ValidateError> {
-    semi_validate(b, mv)?;
-    let mut b_copy = b.clone();
-    let _ = unsafe { make_move_unchecked(&mut b_copy, mv) };
-    if b_copy.is_opponent_king_attacked() {
-        return Err(ValidateError::NotLegal);
-    }
-    Ok(b_copy)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::board::Board;
+    use crate::moves::make::{self, Make};
     use std::mem;
 
     #[test]
@@ -1054,8 +1021,7 @@ mod tests {
             ("c7b8n", "1N1b1K2/8/8/8/7k/8/8/8 b - - 0 1"),
             ("c7d8r", "1b1R1K2/8/8/8/7k/8/8/8 b - - 0 1"),
         ] {
-            let m = Move::from_uci_semilegal(mv_str, &b).unwrap();
-            let u = unsafe { try_make_move_unchecked(&mut b, m).unwrap() };
+            let (m, u) = make::Uci(mv_str).make_raw(&mut b).unwrap();
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
             unsafe { unmake_move_unchecked(&mut b, m, u) };
@@ -1088,8 +1054,7 @@ mod tests {
                 "r1bqk2r/ppp2ppp/2np1n2/1Bb1p3/2P1P3/3P1N2/PP3PPP/RNBQK2R b KQkq - 0 6",
             ),
         ] {
-            let m = Move::from_uci_semilegal(mv_str, &b).unwrap();
-            let u = unsafe { try_make_move_unchecked(&mut b, m).unwrap() };
+            let (m, u) = make::Uci(mv_str).make_raw(&mut b).unwrap();
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
             unsafe { unmake_move_unchecked(&mut b, m, u) };
@@ -1109,8 +1074,7 @@ mod tests {
             ("d5e6", "3K4/3p4/4P3/5P2/8/5p2/6P1/2k5 b - - 0 1"),
             ("f5e6", "3K4/3p4/4P3/3P4/8/5p2/6P1/2k5 b - - 0 1"),
         ] {
-            let m = Move::from_uci_semilegal(mv_str, &b).unwrap();
-            let u = unsafe { try_make_move_unchecked(&mut b, m).unwrap() };
+            let (m, u) = make::Uci(mv_str).make_raw(&mut b).unwrap();
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
             unsafe { unmake_move_unchecked(&mut b, m, u) };
