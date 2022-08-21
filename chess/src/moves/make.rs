@@ -38,6 +38,7 @@ pub unsafe trait Make {
     ///
     /// If the move is not legal, then an error is returned. Some implementations (like [`Unchecked`]
     /// or [`TryUnchecked`]) also allow making null moves.
+    #[inline]
     fn make(&self, board: &Board) -> Result<Board, Self::Err> {
         let mut cloned = board.clone();
         let _ = self.make_raw(&mut cloned)?;
