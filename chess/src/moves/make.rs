@@ -140,6 +140,31 @@ unsafe impl Make for Move {
     }
 }
 
+unsafe impl Make for uci::Move {
+    type Err = uci::ParseError;
+
+    #[inline]
+    fn make_raw(&self, board: &mut Board) -> Result<(Move, RawUndo), Self::Err> {
+        Ok(self.into_move(board)?.make_raw(board)?)
+    }
+
+    #[inline]
+    fn make(&self, board: &Board) -> Result<Board, Self::Err> {
+        Ok(self.into_move(board)?.make(board)?)
+    }
+}
+
+unsafe impl Make for san::Move {
+    type Err = san::IntoMoveError;
+
+    #[inline]
+    fn make_raw(&self, board: &mut Board) -> Result<(Move, RawUndo), Self::Err> {
+        let mv = self.into_move(board)?;
+        let undo = unsafe { base::make_move_unchecked(board, mv) };
+        Ok((mv, undo))
+    }
+}
+
 /// Wrapper to apply a move directly from its UCI notation
 pub struct Uci<S: AsRef<str>>(pub S);
 
