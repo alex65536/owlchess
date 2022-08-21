@@ -355,6 +355,8 @@ impl Data {
     }
 
     /// Converts the parsed SAN into [`moves::Move`](super::Move) in the position `b`
+    ///
+    /// The returned move is guaranteed to be **legal**.
     pub fn into_move(self, b: &Board) -> Result<base::Move, IntoMoveError> {
         match self {
             Self::Uci(uci) => {
@@ -680,6 +682,8 @@ impl Move {
     }
 
     /// Converts the parsed SAN into [`moves::Move`](super::Move) in the position `b`
+    ///
+    /// The returned move is guaranteed to be **legal**.
     pub fn into_move(self, b: &Board) -> Result<base::Move, IntoMoveError> {
         self.data.into_move(b)
     }
