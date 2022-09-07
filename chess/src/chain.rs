@@ -459,6 +459,13 @@ impl<R: Repeat> BaseMoveChain<R> {
     }
 }
 
+impl<R: Repeat> Default for BaseMoveChain<R> {
+    #[inline]
+    fn default() -> Self {
+        Self::new_initial()
+    }
+}
+
 impl<R: Repeat + Eq> PartialEq<Self> for BaseMoveChain<R> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {

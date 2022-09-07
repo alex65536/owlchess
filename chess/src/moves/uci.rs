@@ -68,6 +68,13 @@ pub enum Move {
     },
 }
 
+impl Default for Move {
+    #[inline]
+    fn default() -> Self {
+        Move::Null
+    }
+}
+
 impl Move {
     fn do_into_move<C: generic::Color>(&self, b: &Board) -> Result<base::Move, CreateError> {
         match *self {

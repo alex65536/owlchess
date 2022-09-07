@@ -188,6 +188,13 @@ pub enum Data {
     },
 }
 
+impl Default for Data {
+    #[inline]
+    fn default() -> Self {
+        Data::Uci(Default::default())
+    }
+}
+
 struct PromoteFmt<T: PieceTheme>(Option<PromotePiece>, PhantomData<T>);
 
 impl<T: PieceTheme> fmt::Display for PromoteFmt<T> {
@@ -620,7 +627,7 @@ pub enum CheckMark {
 }
 
 /// Parsed SAN move with a [`CheckMark`]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Default, Debug, Eq, PartialEq, Hash)]
 pub struct Move {
     /// Data without check mark
     pub data: Data,

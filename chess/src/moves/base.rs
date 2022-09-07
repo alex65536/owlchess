@@ -38,6 +38,13 @@ pub enum MoveKind {
     PromoteQueen = 10,
 }
 
+impl Default for MoveKind {
+    #[inline]
+    fn default() -> Self {
+        MoveKind::Null
+    }
+}
+
 /// Target piece for promotion
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
@@ -493,6 +500,13 @@ impl Move {
                 san::Style::Utf8,
             ))),
         }
+    }
+}
+
+impl Default for Move {
+    #[inline]
+    fn default() -> Self {
+        Move::NULL
     }
 }
 
