@@ -11,6 +11,7 @@ use crate::{bitboard_consts, geometry, movegen, zobrist};
 use std::fmt::{self, Display};
 use std::num::ParseIntError;
 use std::str::FromStr;
+use std::hash::{Hash, Hasher};
 
 use thiserror::Error;
 
@@ -141,7 +142,7 @@ pub enum FenParseError {
 /// let board: Board = raw.try_into().unwrap();
 /// assert_eq!(board.as_fen(), "8/8/8/3k4/8/8/1K6/8 w - - 10 42");
 /// ```
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct RawBoard {
     /// Contents of the board
     ///
@@ -254,6 +255,9 @@ impl RawBoard {
     ///
     /// Note that Zobrist hash doesn't contain move counter and move number, so it can be used
     /// to detect draw by repetitions.
+    ///
+    /// By contrast, implementation of [`Hash`] trait includes move counter and move number into
+    /// the hash.
     #[inline]
     pub fn zobrist_hash(&self) -> u64 {
         let mut hash = if self.side == Color::White {
@@ -488,6 +492,9 @@ impl Board {
     /// Note that Zobrist hash doesn't contain move counter and move number, so it can be used
     /// to detect draw by repetitions.
     ///
+    /// By contrast, implementation of [`Hash`] trait includes move counter and move number into
+    /// the hash.
+    ///
     /// Unlike [`RawBoard::zobrist_hash`], this function just returns the precomputed value and
     /// doesn't try to  recalculate the hash from scratch.
     #[inline]
@@ -650,6 +657,13 @@ impl Board {
     #[inline]
     pub fn as_fen(&self) -> String {
         self.to_string()
+    }
+}
+
+impl Hash for Board {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.r.hash(state)
     }
 }
 
