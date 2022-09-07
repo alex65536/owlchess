@@ -9,9 +9,9 @@ use crate::types::{
 use crate::{bitboard_consts, geometry, movegen, zobrist};
 
 use std::fmt::{self, Display};
+use std::hash::{Hash, Hasher};
 use std::num::ParseIntError;
 use std::str::FromStr;
-use std::hash::{Hash, Hasher};
 
 use thiserror::Error;
 
