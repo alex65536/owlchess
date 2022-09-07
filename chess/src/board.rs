@@ -487,6 +487,9 @@ impl Board {
     ///
     /// Note that Zobrist hash doesn't contain move counter and move number, so it can be used
     /// to detect draw by repetitions.
+    ///
+    /// Unlike [`RawBoard::zobrist_hash`], this function just returns the precomputed value and
+    /// doesn't try to  recalculate the hash from scratch.
     #[inline]
     pub fn zobrist_hash(&self) -> u64 {
         self.hash
