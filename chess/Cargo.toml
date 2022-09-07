@@ -1,6 +1,6 @@
 [package]
 name = "owlchess"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 description = "Yet another chess library for Rust"
 authors = ["Alexander Kernozhitsky <kernalex256@yandex.by>"]
@@ -12,12 +12,12 @@ keywords = ["games", "chess"]
 categories = ["games", "parser-implementations"]
 
 [dependencies]
-owlchess_base = { path = "../chess_base", version = "0.3.1" }
+owlchess_base = { path = "../chess_base", version = "0.3.2" }
 thiserror = "1.0.31"
 arrayvec = "0.7.2"
 
 [build-dependencies]
-owlchess_base = { path = "../chess_base", version = "0.3.1" }
+owlchess_base = { path = "../chess_base", version = "0.3.2" }
 rand_xoshiro = "0.6.0"
 rand_core = "0.6.3"
 
