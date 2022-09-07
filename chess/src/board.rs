@@ -369,7 +369,7 @@ impl Default for RawBoard {
 /// you must call [`Board::is_opponent_king_attacked()`] and undo the offending before doing anything else.
 /// Alternatively, you can just drop the invalid board. Other actions with the board when the opponent's
 /// king is under attack are considered undefined behavior.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Board {
     pub(crate) r: RawBoard,
     pub(crate) hash: u64,
@@ -659,6 +659,15 @@ impl Board {
         self.to_string()
     }
 }
+
+impl PartialEq for Board {
+    #[inline]
+    fn eq(&self, other: &Board) -> bool {
+        self.r == other.r
+    }
+}
+
+impl Eq for Board {}
 
 impl Hash for Board {
     #[inline]
