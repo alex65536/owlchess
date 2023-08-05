@@ -110,6 +110,7 @@ impl<'a, P: Prechecker> Checker<'a, P> {
         }
     }
 
+    #[inline]
     fn is_attacked(&self, pos: Coord, all: Bitboard, mask: Bitboard) -> bool {
         let inv = self.inv;
         let b = self.src;
@@ -120,10 +121,10 @@ impl<'a, P: Prechecker> Checker<'a, P> {
         let pawn_attacks = attack::pawn(inv.inv(), pos);
 
         // Near attacks
-        let near_attackers = (b.piece2(inv, Piece::Pawn) & pawn_attacks)
-            | (b.piece2(inv, Piece::King) & attack::king(pos))
-            | (b.piece2(inv, Piece::Knight) & attack::knight(pos));
-        if (near_attackers & mask).is_nonempty() {
+        if (b.piece2(inv, Piece::Pawn) & pawn_attacks & mask).is_nonempty()
+            || (b.piece2(inv, Piece::King) & attack::king(pos) & mask).is_nonempty()
+            || (b.piece2(inv, Piece::Knight) & attack::knight(pos) & mask).is_nonempty()
+        {
             return true;
         }
 
