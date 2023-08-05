@@ -4,7 +4,7 @@ use owlchess::{
     moves, Board, Color, Coord, Make,
 };
 
-const BOARDS: [(&'static str, &'static str); 10] = [
+const BOARDS: [(&str, &str); 10] = [
     (
         "initial",
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",

@@ -47,7 +47,7 @@ fn main() {
             Ok(mv) => mv,
             Err(e) => {
                 println!("Bad move: {}", e);
-                println!("");
+                println!();
                 continue;
             }
         };
@@ -56,7 +56,7 @@ fn main() {
         // error checking.
         chain.push(mv).unwrap();
 
-        println!("");
+        println!();
 
         // Check whether the game must be terminated.
         chain.set_auto_outcome(OutcomeFilter::Strict);

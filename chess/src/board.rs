@@ -1045,7 +1045,7 @@ mod tests {
 
     #[test]
     fn test_initial() {
-        const INI_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        const INI_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
         assert_eq!(RawBoard::initial().to_string(), INI_FEN);
         assert_eq!(Board::initial().to_string(), INI_FEN);
@@ -1055,7 +1055,7 @@ mod tests {
 
     #[test]
     fn test_midgame() {
-        const FEN: &'static str =
+        const FEN: &str =
             "1rq1r1k1/1p3ppp/pB3n2/3ppP2/Pbb1P3/1PN2B2/2P2QPP/R1R4K w - - 1 21";
 
         let board = Board::from_fen(FEN).unwrap();
@@ -1085,7 +1085,7 @@ mod tests {
 
     #[test]
     fn test_fixes() {
-        const FEN: &'static str =
+        const FEN: &str =
             "r1bq1b1r/ppppkppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK1R1 w KQkq c6 6 5";
 
         let raw = RawBoard::from_fen(FEN).unwrap();
