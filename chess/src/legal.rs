@@ -95,7 +95,6 @@ impl Prechecker for DefaultPrechecker {
 pub struct Checker<'a, P> {
     src: &'a Board,
     pre: P,
-    side: Color,
     inv: Color,
     king: Coord,
 }
@@ -106,7 +105,6 @@ impl<'a, P: Prechecker> Checker<'a, P> {
         Self {
             src,
             pre,
-            side,
             inv: side.inv(),
             king: src.king_pos(side),
         }
@@ -117,9 +115,9 @@ impl<'a, P: Prechecker> Checker<'a, P> {
         let b = self.src;
 
         // Here, we use black attack map for white, as we need to trace the attack from destination piece,
-        // not from the source one. For example, if we are white (i.e. `self.side == Color::White`), then
+        // not from the source one. For example, if we are white (i.e. `self.inv == Color::Black`), then
         // we are attacked by black and thus need to use white attack map.
-        let pawn_attacks = attack::pawn(self.side, pos);
+        let pawn_attacks = attack::pawn(inv.inv(), pos);
 
         // Near attacks
         let near_attackers = (b.piece2(inv, Piece::Pawn) & pawn_attacks)
