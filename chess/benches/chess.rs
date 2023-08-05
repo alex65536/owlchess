@@ -59,14 +59,12 @@ fn bench_make_move(c: &mut Criterion) {
         let moves = semilegal::gen_all(&board);
         group.bench_function(name, |b| {
             b.iter(|| {
-                black_box({
-                    for mv in &moves {
-                        unsafe {
-                            let u = moves::make_move_unchecked(&mut board, *mv);
-                            moves::unmake_move_unchecked(&mut board, *mv, u)
-                        }
+                for mv in &moves {
+                    unsafe {
+                        let u = moves::make_move_unchecked(&mut board, *mv);
+                        moves::unmake_move_unchecked(&mut board, *mv, u)
                     }
-                })
+                }
             })
         });
     }
