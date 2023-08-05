@@ -645,7 +645,7 @@ pub mod legal {
                 $(#[$attr])*
                 pub fn $name(b: &Board) -> MoveList {
                     let mut res = super::semilegal::$name(b);
-                    let mut checker = Checker::new(b, DefaultPrechecker::new(b));
+                    let checker = Checker::new(b, DefaultPrechecker::new(b));
                     res.retain(|&mut mv| checker.is_legal(mv));
                     res
                 }
