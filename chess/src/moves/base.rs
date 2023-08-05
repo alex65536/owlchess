@@ -11,10 +11,11 @@ use std::str::FromStr;
 use thiserror::Error;
 
 /// Move kind
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum MoveKind {
     /// Null move
+    #[default]
     Null = 0,
     /// Non-pawn move or capture (except castling)
     Simple = 1,
@@ -36,13 +37,6 @@ pub enum MoveKind {
     PromoteRook = 9,
     /// Pawn promote to queen (either non-capture or capture)
     PromoteQueen = 10,
-}
-
-impl Default for MoveKind {
-    #[inline]
-    fn default() -> Self {
-        MoveKind::Null
-    }
 }
 
 /// Target piece for promotion
@@ -336,7 +330,7 @@ impl Move {
             side: Some(side),
         };
         mv.is_well_formed()
-            .then(|| mv)
+            .then_some(mv)
             .ok_or(CreateError::NotWellFormed)
     }
 

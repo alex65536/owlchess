@@ -105,9 +105,8 @@ They may give you more ideas on how to use the crate.
 
 ## Rust version
 
-This crate is currently tested only with Rust 1.61 or higher, but can possibly work with older versions.
-Rust versions before 1.51 are definitely not supported, as we use [`arrayvec`](https://github.com/bluss/arrayvec)
-as dependency.
+This crate is currently tested only with Rust 1.71 or higher, but can possibly work with older versions.
+Rust versions before 1.62 are definitely not supported.
 
 ## Comparison with other crates
 

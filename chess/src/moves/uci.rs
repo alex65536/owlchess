@@ -53,9 +53,10 @@ pub enum ParseError {
 }
 
 /// Parsed move in UCI format
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Default, Debug, Eq, PartialEq, Hash)]
 pub enum Move {
     /// Null UCI move
+    #[default]
     Null,
     /// Non-null UCI move
     Move {
@@ -66,13 +67,6 @@ pub enum Move {
         /// Piece to promote, if any
         promote: Option<PromotePiece>,
     },
-}
-
-impl Default for Move {
-    #[inline]
-    fn default() -> Self {
-        Move::Null
-    }
 }
 
 impl Move {
