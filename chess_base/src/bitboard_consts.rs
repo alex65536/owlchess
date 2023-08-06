@@ -84,7 +84,13 @@ pub const fn file(f: File) -> Bitboard {
 }
 
 /// Bitboard containing all the white squares on the board
-pub const CELLS_WHITE: Bitboard = Bitboard::from_raw(0xaa55aa55aa55aa55);
+pub const SQUARES_WHITE: Bitboard = Bitboard::from_raw(0xaa55aa55aa55aa55);
 
 /// Bitboard containing all the black squares on the board
-pub const CELLS_BLACK: Bitboard = Bitboard::from_raw(0x55aa55aa55aa55aa);
+pub const SQUARES_BLACK: Bitboard = Bitboard::from_raw(0x55aa55aa55aa55aa);
+
+#[deprecated(since = "0.3.3", note = "Use `SQUARES_WHITE`")]
+pub const CELLS_WHITE: Bitboard = SQUARES_WHITE;
+
+#[deprecated(since = "0.3.3", note = "Use `SQUARES_BLACK`")]
+pub const CELLS_BLACK: Bitboard = SQUARES_BLACK;

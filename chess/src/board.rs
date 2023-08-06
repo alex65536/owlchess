@@ -554,8 +554,8 @@ impl Board {
 
         // If we have pieces on both white and black squares, then no draw occurs. This cutoff
         // optimizes the function in most positions.
-        if (all_without_kings & bitboard_consts::CELLS_WHITE).is_nonempty()
-            && (all_without_kings & bitboard_consts::CELLS_BLACK).is_nonempty()
+        if (all_without_kings & bitboard_consts::SQUARES_WHITE).is_nonempty()
+            && (all_without_kings & bitboard_consts::SQUARES_BLACK).is_nonempty()
         {
             return false;
         }

@@ -451,7 +451,7 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
         Ok(())
     }
 
-    pub fn gen_all_for_detect(&mut self) -> Result<(), P::Err> {
+    pub fn gen_for_has_legal_moves(&mut self) -> Result<(), P::Err> {
         self.gen_king::<true, true>()?;
         self.gen_brq::<true, true>()?;
         self.gen_knight::<true, true>()?;
@@ -686,8 +686,8 @@ pub fn has_legal_moves(b: &Board) -> bool {
     let mut err_on_first = ErrOnFirst;
     let mut p = LegalFilter::new(b, &mut err_on_first);
     (match b.r.side {
-        Color::White => MoveGenImpl::new(b, &mut p, generic::White).gen_all_for_detect(),
-        Color::Black => MoveGenImpl::new(b, &mut p, generic::Black).gen_all_for_detect(),
+        Color::White => MoveGenImpl::new(b, &mut p, generic::White).gen_for_has_legal_moves(),
+        Color::Black => MoveGenImpl::new(b, &mut p, generic::Black).gen_for_has_legal_moves(),
     })
     .is_err()
 }
