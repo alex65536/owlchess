@@ -299,7 +299,7 @@ impl<R: Repeat> BaseMoveChain<R> {
     }
 
     /// Calculates the game outcome using [`BaseMoveChain::calc_outcome()`] and sets the calculated
-    /// outcome if it passes the filter `filter`
+    /// outcome if it passes the filter `filter`. Returns the outcome that has been set.
     ///
     /// This function can be computationally expensive, as it calls
     /// [`movegen::has_legal_moves`](crate::movegen::has_legal_moves).
