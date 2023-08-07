@@ -170,7 +170,7 @@ impl MoveKind {
 ///   Null move is not considered semilegal (but see the [notes below](#null-move)).
 ///
 /// - _Legal_. A move is considered legal if it's semilegal plus the king doesn't remain under attack. So, such move
-///   is fully valid by the rules of check.
+///   is fully valid by the rules of chess.
 ///
 /// # Null move
 ///
