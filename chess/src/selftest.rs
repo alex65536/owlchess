@@ -9,8 +9,24 @@ use crate::movegen::{legal, semilegal, MoveList};
 use crate::moves::{self, Move, MoveKind, Style};
 use crate::types::Coord;
 
+#[derive(Debug, Eq)]
+struct BoardFullEq<'a>(&'a Board);
+
+impl<'a> PartialEq for BoardFullEq<'a> {
+    #[inline]
+    fn eq(&self, other: &BoardFullEq<'a>) -> bool {
+        return self.0.r == other.0.r
+            && self.0.hash == other.0.hash
+            && self.0.white == other.0.white
+            && self.0.black == other.0.black
+            && self.0.all == other.0.all
+            && self.0.pieces == other.0.pieces;
+    }
+}
+
 fn test_board_valid(b: &Board) {
-    assert_eq!(b.raw().try_into().as_ref(), Ok(b))
+    let b_other = b.raw().try_into().unwrap();
+    assert_eq!(BoardFullEq(&b_other), BoardFullEq(b));
 }
 
 fn move_key(m: &Move) -> (u8, u8, u8, u8) {
