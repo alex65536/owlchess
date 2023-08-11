@@ -12,12 +12,12 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-owlchess_base = { path = "../chess_base", version = "0.3.2" }
+owlchess_base = { path = "../chess_base", version = "0.3.3" }
 thiserror = "1.0.31"
 arrayvec = "0.7.2"
 
 [build-dependencies]
-owlchess_base = { path = "../chess_base", version = "0.3.2" }
+owlchess_base = { path = "../chess_base", version = "0.3.3" }
 rand_xoshiro = "0.6.0"
 rand_core = "0.6.4"
 
