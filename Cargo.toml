@@ -1,6 +1,14 @@
 [workspace]
-
 members = [
     "chess/",
     "chess_base/",
 ]
+
+[workspace.package]
+version = "0.3.2"
+authors = ["Alexander Kernozhitsky <kernalex256@yandex.by>"]
+homepage = "https://github.com/alex65536/owlchess"
+repository = "https://github.com/alex65536/owlchess"
+license = "MIT"
+keywords = ["games", "chess"]
+categories = ["games", "parser-implementations"]
