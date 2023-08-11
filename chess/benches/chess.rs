@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use owlchess::{
-    movegen::{self, semilegal},
+    movegen::{self, legal, semilegal},
     moves, Board, Color, Coord, Make,
 };
 
@@ -50,6 +50,13 @@ fn bench_gen_moves(c: &mut Criterion) {
         group.bench_function(name, |b| {
             b.iter(|| black_box(semilegal::gen_all(&board).len()))
         });
+    }
+}
+
+fn bench_gen_moves_legal(c: &mut Criterion) {
+    let mut group = c.benchmark_group("gen_moves_legal");
+    for (name, board) in boards() {
+        group.bench_function(name, |b| b.iter(|| black_box(legal::gen_all(&board).len())));
     }
 }
 
@@ -137,6 +144,7 @@ fn bench_has_legal_moves(c: &mut Criterion) {
 criterion_group!(
     chess,
     bench_gen_moves,
+    bench_gen_moves_legal,
     bench_make_move,
     bench_make_move_checked,
     bench_is_move_semilegal,
