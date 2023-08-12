@@ -7,7 +7,7 @@
 use crate::board::Board;
 use crate::movegen::{legal, semilegal, MoveList};
 use crate::moves::{self, Move, MoveKind, Style};
-use crate::types::Coord;
+use crate::types::{Cell, Coord, Piece};
 
 #[derive(Debug, Eq)]
 struct BoardFullEq<'a>(&'a Board);
@@ -32,9 +32,9 @@ fn test_board_valid(b: &Board) {
 fn move_key(m: &Move) -> (u8, u8, u8, u8) {
     (
         m.kind() as u8,
+        m.src_cell().index() as u8,
         m.src().index() as u8,
         m.dst().index() as u8,
-        m.side().map(|x| x as u8).unwrap_or(255),
     )
 }
 
@@ -83,7 +83,6 @@ pub fn selftest(b: &Board) {
         MoveKind::Simple,
         MoveKind::CastlingKingside,
         MoveKind::CastlingQueenside,
-        MoveKind::PawnSimple,
         MoveKind::PawnDouble,
         MoveKind::Enpassant,
         MoveKind::PromoteKnight,
@@ -91,11 +90,16 @@ pub fn selftest(b: &Board) {
         MoveKind::PromoteRook,
         MoveKind::PromoteQueen,
     ] {
-        for src in Coord::iter() {
-            for dst in Coord::iter() {
-                if let Ok(mv) = Move::new(kind, src, dst, b.side()) {
-                    if mv.semi_validate(b).is_ok() {
-                        semilegals.push(mv);
+        for piece in Piece::iter() {
+            if !kind.matches_piece(piece) {
+                continue;
+            }
+            for src in Coord::iter() {
+                for dst in Coord::iter() {
+                    if let Ok(mv) = Move::new(kind, Cell::from_parts(b.side(), piece), src, dst) {
+                        if mv.semi_validate(b).is_ok() {
+                            semilegals.push(mv);
+                        }
                     }
                 }
             }
@@ -138,6 +142,11 @@ pub fn selftest(b: &Board) {
             Move::from_san(&mv.styled(b, Style::San).unwrap().to_string(), b),
             Ok(*mv),
         );
+    }
+
+    // Check that `Move::src_cell` works correctly
+    for mv in &legals1 {
+        assert_eq!(mv.src_cell(), b.get(mv.src()));
     }
 }
 

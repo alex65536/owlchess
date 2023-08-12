@@ -6,7 +6,7 @@ use super::uci;
 use crate::bitboard::Bitboard;
 use crate::board::Board;
 use crate::movegen::{self, MovePush};
-use crate::types::{CastlingSide, Coord, CoordParseError, File, Piece, Rank};
+use crate::types::{CastlingSide, Cell, Coord, CoordParseError, File, Piece, Rank};
 use crate::{bitboard_consts, geometry};
 
 use std::fmt;
@@ -324,40 +324,41 @@ impl Data {
                 dst: mv.dst(),
                 promote: None,
             },
-            MoveKind::PawnSimple
-            | MoveKind::PromoteKnight
-            | MoveKind::PromoteBishop
-            | MoveKind::PromoteRook
-            | MoveKind::PromoteQueen => {
-                if mv.src().file() == mv.dst().file() {
-                    Data::PawnMove {
-                        dst: mv.dst(),
-                        promote: mv.kind().try_into().ok(),
-                    }
-                } else {
-                    Data::PawnCapture {
-                        src: mv.src().file(),
-                        dst: mv.dst(),
-                        promote: mv.kind().try_into().ok(),
-                    }
-                }
-            }
             MoveKind::CastlingKingside | MoveKind::CastlingQueenside => {
                 Data::Castling(mv.kind().try_into().unwrap())
             }
-            MoveKind::Simple => {
-                let piece = b.get(mv.src()).piece().unwrap();
-                let is_capture = b.get(mv.dst()).is_occupied();
-                let mut detector = AmbigDetector::new(mv);
-                movegen::san_candidates(b, piece, mv.dst(), &mut detector);
-                Data::Simple {
-                    piece,
-                    file: detector.file(),
-                    rank: detector.rank(),
-                    is_capture,
-                    dst: mv.dst(),
+            MoveKind::Simple
+            | MoveKind::PromoteKnight
+            | MoveKind::PromoteBishop
+            | MoveKind::PromoteRook
+            | MoveKind::PromoteQueen => match mv.src_cell().piece().unwrap() {
+                Piece::Pawn => {
+                    if mv.src().file() == mv.dst().file() {
+                        Data::PawnMove {
+                            dst: mv.dst(),
+                            promote: mv.kind().try_into().ok(),
+                        }
+                    } else {
+                        Data::PawnCapture {
+                            src: mv.src().file(),
+                            dst: mv.dst(),
+                            promote: mv.kind().try_into().ok(),
+                        }
+                    }
                 }
-            }
+                piece => {
+                    let is_capture = b.get(mv.dst()).is_occupied();
+                    let mut detector = AmbigDetector::new(mv);
+                    movegen::san_candidates(b, piece, mv.dst(), &mut detector);
+                    Data::Simple {
+                        piece,
+                        file: detector.file(),
+                        rank: detector.rank(),
+                        is_capture,
+                        dst: mv.dst(),
+                    }
+                }
+            },
         }
     }
 
@@ -381,16 +382,16 @@ impl Data {
                     return Err(IntoMoveError::Create(CreateError::NotWellFormed));
                 }
                 let mut src = dst.add(-geometry::pawn_forward_delta(b.side()));
-                let mut kind = MoveKind::PawnSimple;
+                let mut kind = MoveKind::Simple;
                 if !b.get(src).is_occupied() {
                     src = Coord::from_parts(dst.file(), geometry::double_move_src_rank(b.side()));
                     kind = MoveKind::PawnDouble;
                 }
                 let mv = base::Move::new(
                     promote.map(MoveKind::from).unwrap_or(kind),
+                    Cell::from_parts(b.side(), Piece::Pawn),
                     src,
                     dst,
-                    b.side(),
                 )?;
                 mv.validate(b)?;
                 Ok(mv)
@@ -399,7 +400,7 @@ impl Data {
                 if dst.rank() == geometry::promote_src_rank(b.side().inv()) {
                     return Err(IntoMoveError::Create(CreateError::NotWellFormed));
                 }
-                let mut kind = MoveKind::PawnSimple;
+                let mut kind = MoveKind::Simple;
                 if Some(dst) == b.r.ep_dest() {
                     kind = MoveKind::Enpassant;
                 }
@@ -410,9 +411,9 @@ impl Data {
                     Coord::from_parts(src, dst.rank()).add(-geometry::pawn_forward_delta(b.side()));
                 let mv = base::Move::new(
                     promote.map(MoveKind::from).unwrap_or(kind),
+                    Cell::from_parts(b.side(), Piece::Pawn),
                     src,
                     dst,
-                    b.side(),
                 )?;
                 mv.validate(b)?;
                 Ok(mv)

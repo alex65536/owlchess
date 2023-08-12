@@ -2,7 +2,7 @@
 
 use super::base::{self, CreateError, MoveKind, PromotePiece, ValidateError};
 use crate::board::Board;
-use crate::types::{Cell, Color, Coord, CoordParseError, File, Piece};
+use crate::types::{Color, Coord, CoordParseError, File, Piece};
 use crate::{generic, geometry};
 
 use std::fmt;
@@ -74,9 +74,16 @@ impl Move {
         match *self {
             Move::Null => Ok(base::Move::NULL),
             Move::Move { src, dst, promote } => {
+                let src_cell = b.get(src);
+                if src_cell.color() != Some(C::COLOR) {
+                    return Err(CreateError::NotWellFormed);
+                }
+
                 let kind = promote.map(MoveKind::from).unwrap_or_else(|| {
+                    let piece = src_cell.piece().unwrap();
+
                     // Pawn moves
-                    if b.get(src) == Cell::from_parts(C::COLOR, Piece::Pawn) {
+                    if piece == Piece::Pawn {
                         if src.rank() == geometry::double_move_src_rank(C::COLOR)
                             && dst.rank() == geometry::double_move_dst_rank(C::COLOR)
                         {
@@ -85,11 +92,11 @@ impl Move {
                         if src.file() != dst.file() && b.get(dst).is_free() {
                             return MoveKind::Enpassant;
                         }
-                        return MoveKind::PawnSimple;
+                        return MoveKind::Simple;
                     }
 
                     // Castling
-                    if b.get(src) == Cell::from_parts(C::COLOR, Piece::King) {
+                    if piece == Piece::King {
                         let rank = geometry::castling_rank(C::COLOR);
                         if src == Coord::from_parts(File::E, rank) {
                             if dst == Coord::from_parts(File::G, rank) {
@@ -104,7 +111,7 @@ impl Move {
                     MoveKind::Simple
                 });
 
-                base::Move::new(kind, src, dst, C::COLOR)
+                base::Move::new(kind, src_cell, src, dst)
             }
         }
     }
@@ -182,7 +189,7 @@ impl FromStr for Move {
 mod tests {
     use super::*;
     use crate::board::Board;
-    use crate::types::{Color, Coord, File, Rank};
+    use crate::types::{Cell, Color, Coord, File, Rank};
 
     #[test]
     fn test_simple() {
@@ -210,7 +217,13 @@ mod tests {
                 .unwrap()
                 .into_move(&Board::initial())
                 .unwrap(),
-            base::Move::new(MoveKind::PawnDouble, e2, e4, Color::White).unwrap(),
+            base::Move::new(
+                MoveKind::PawnDouble,
+                Cell::from_parts(Color::White, Piece::Pawn),
+                e2,
+                e4,
+            )
+            .unwrap(),
         );
     }
 }

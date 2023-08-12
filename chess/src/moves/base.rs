@@ -17,26 +17,24 @@ pub enum MoveKind {
     /// Null move
     #[default]
     Null = 0,
-    /// Non-pawn move or capture (except castling)
+    /// Simple move
     Simple = 1,
     /// Kingside castling
     CastlingKingside = 2,
     /// Queenside castling
     CastlingQueenside = 3,
-    /// Single pawn move (either non-capture or capture)
-    PawnSimple = 4,
     /// Double pawn move
-    PawnDouble = 5,
+    PawnDouble = 4,
     /// Enpassant
-    Enpassant = 6,
+    Enpassant = 5,
     /// Pawn promote to knight (either non-capture or capture)
-    PromoteKnight = 7,
+    PromoteKnight = 6,
     /// Pawn promote to bishop (either non-capture or capture)
-    PromoteBishop = 8,
+    PromoteBishop = 7,
     /// Pawn promote to rook (either non-capture or capture)
-    PromoteRook = 9,
+    PromoteRook = 8,
     /// Pawn promote to queen (either non-capture or capture)
-    PromoteQueen = 10,
+    PromoteQueen = 9,
 }
 
 /// Target piece for promotion
@@ -146,6 +144,22 @@ impl MoveKind {
         let piece: PromotePiece = self.try_into().ok()?;
         Some(piece.into())
     }
+
+    /// Returns true if move kind with the piece `piece` can exist
+    #[inline]
+    pub fn matches_piece(self, piece: Piece) -> bool {
+        match self {
+            MoveKind::Simple => true,
+            MoveKind::PawnDouble
+            | MoveKind::Enpassant
+            | MoveKind::PromoteKnight
+            | MoveKind::PromoteBishop
+            | MoveKind::PromoteRook
+            | MoveKind::PromoteQueen => piece == Piece::Pawn,
+            MoveKind::CastlingKingside | MoveKind::CastlingQueenside => piece == Piece::King,
+            MoveKind::Null => false,
+        }
+    }
 }
 
 /// Chess move
@@ -184,9 +198,9 @@ impl MoveKind {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Move {
     kind: MoveKind,
+    src_cell: Cell,
     src: Coord,
     dst: Coord,
-    side: Option<Color>,
 }
 
 /// Error indicating that move is invalid
@@ -215,9 +229,9 @@ impl Move {
     const fn null() -> Self {
         Self {
             kind: MoveKind::Null,
+            src_cell: Cell::EMPTY,
             src: Coord::from_index(0),
             dst: Coord::from_index(0),
-            side: None,
         }
     }
 
@@ -232,9 +246,9 @@ impl Move {
         };
         Move {
             kind: MoveKind::from(side),
+            src_cell: Cell::from_parts(color, Piece::King),
             src,
             dst,
-            side: Some(color),
         }
     }
 
@@ -246,12 +260,17 @@ impl Move {
     /// than checking it for well-formedness via [`Move::is_well_formed()`] or examining its fields via
     /// getters.
     #[inline]
-    pub const unsafe fn new_unchecked(kind: MoveKind, src: Coord, dst: Coord, side: Color) -> Move {
+    pub const unsafe fn new_unchecked(
+        kind: MoveKind,
+        src_cell: Cell,
+        src: Coord,
+        dst: Coord,
+    ) -> Move {
         Move {
             kind,
+            src_cell,
             src,
             dst,
-            side: Some(side),
         }
     }
 
@@ -322,12 +341,17 @@ impl Move {
     }
 
     /// Creates a new non-null move from its raw parts and validates it for well-formedness
-    pub fn new(kind: MoveKind, src: Coord, dst: Coord, side: Color) -> Result<Move, CreateError> {
+    pub fn new(
+        kind: MoveKind,
+        src_cell: Cell,
+        src: Coord,
+        dst: Coord,
+    ) -> Result<Move, CreateError> {
         let mv = Move {
             kind,
+            src_cell,
             src,
             dst,
-            side: Some(side),
         };
         mv.is_well_formed()
             .then_some(mv)
@@ -339,87 +363,76 @@ impl Move {
     /// If the move is not well-formed, you can only call getters and this function on it, other uses
     /// are undefined behaviour.
     pub fn is_well_formed(&self) -> bool {
-        // `side` can be `None` only if it's null move
-        if self.side.is_none() && self.kind != MoveKind::Null {
+        if self.kind == MoveKind::Null {
+            return *self == Move::NULL;
+        }
+
+        // `src_cell == EMPTY` and `src == dst` are true only for null moves.
+        if self.src_cell == Cell::EMPTY || self.src == self.dst {
             return false;
         }
-        let side = self.side.unwrap_or(Color::White);
+
+        let color = self.src_cell.color().unwrap();
+        let piece = self.src_cell.piece().unwrap();
+
+        if !self.kind.matches_piece(piece) {
+            return false;
+        }
 
         match self.kind {
-            MoveKind::Null => {
-                if *self != Move::NULL {
-                    return false;
+            MoveKind::Simple => match piece {
+                Piece::Pawn => {
+                    if self.src.file().index().abs_diff(self.dst.file().index()) > 1
+                        || matches!(self.src.rank(), Rank::R1 | Rank::R8)
+                        || matches!(self.dst.rank(), Rank::R1 | Rank::R8)
+                    {
+                        false
+                    } else {
+                        match color {
+                            Color::White => self.src.rank().index() == self.dst.rank().index() + 1,
+                            Color::Black => self.src.rank().index() + 1 == self.dst.rank().index(),
+                        }
+                    }
                 }
-            }
-            MoveKind::Simple => {
-                // No need to perform additional checks
-            }
+                Piece::King => attack::king(self.src).has(self.dst),
+                Piece::Knight => attack::knight(self.src).has(self.dst),
+                Piece::Bishop => between::is_bishop_valid(self.src, self.dst),
+                Piece::Rook => between::is_rook_valid(self.src, self.dst),
+                Piece::Queen => {
+                    between::is_bishop_valid(self.src, self.dst)
+                        || between::is_rook_valid(self.src, self.dst)
+                }
+            },
             MoveKind::CastlingKingside => {
-                let rank = geometry::castling_rank(side);
-                if self.src != Coord::from_parts(File::E, rank)
-                    || self.dst != Coord::from_parts(File::G, rank)
-                {
-                    return false;
-                }
+                let rank = geometry::castling_rank(color);
+                self.src == Coord::from_parts(File::E, rank)
+                    && self.dst == Coord::from_parts(File::G, rank)
             }
             MoveKind::CastlingQueenside => {
-                let rank = geometry::castling_rank(side);
-                if self.src != Coord::from_parts(File::E, rank)
-                    || self.dst != Coord::from_parts(File::C, rank)
-                {
-                    return false;
-                }
-            }
-            MoveKind::PawnSimple => {
-                if self.src.file().index().abs_diff(self.dst.file().index()) > 1
-                    || matches!(self.src.rank(), Rank::R1 | Rank::R8)
-                    || matches!(self.dst.rank(), Rank::R1 | Rank::R8)
-                {
-                    return false;
-                }
-                match side {
-                    Color::White => {
-                        if self.src.rank().index() != self.dst.rank().index() + 1 {
-                            return false;
-                        }
-                    }
-                    Color::Black => {
-                        if self.src.rank().index() + 1 != self.dst.rank().index() {
-                            return false;
-                        }
-                    }
-                };
+                let rank = geometry::castling_rank(color);
+                self.src == Coord::from_parts(File::E, rank)
+                    && self.dst == Coord::from_parts(File::C, rank)
             }
             MoveKind::PawnDouble => {
-                if self.src.file() != self.dst.file()
-                    || self.src.rank() != geometry::double_move_src_rank(side)
-                    || self.dst.rank() != geometry::double_move_dst_rank(side)
-                {
-                    return false;
-                }
+                self.src.file() == self.dst.file()
+                    && self.src.rank() == geometry::double_move_src_rank(color)
+                    && self.dst.rank() == geometry::double_move_dst_rank(color)
             }
             MoveKind::Enpassant => {
-                if self.src.rank() != geometry::enpassant_src_rank(side)
-                    || self.dst.rank() != geometry::enpassant_dst_rank(side)
-                    || self.src.file().index().abs_diff(self.dst.file().index()) != 1
-                {
-                    return false;
-                }
+                self.src.rank() == geometry::enpassant_src_rank(color)
+                    && self.dst.rank() == geometry::enpassant_dst_rank(color)
+                    && self.src.file().index().abs_diff(self.dst.file().index()) == 1
             }
             MoveKind::PromoteKnight
             | MoveKind::PromoteBishop
             | MoveKind::PromoteRook
             | MoveKind::PromoteQueen => {
-                if self.src.rank() != geometry::promote_src_rank(side)
-                    || self.dst.rank() != geometry::promote_dst_rank(side)
-                    || self.src.file().index().abs_diff(self.dst.file().index()) > 1
-                {
-                    return false;
-                }
+                self.src.rank() == geometry::promote_src_rank(color)
+                    && self.dst.rank() == geometry::promote_dst_rank(color)
+                    && self.src.file().index().abs_diff(self.dst.file().index()) <= 1
             }
-        };
-
-        true
+            MoveKind::Null => unreachable!(),
+        }
     }
 
     /// Returns the move kind
@@ -444,10 +457,12 @@ impl Move {
         self.dst
     }
 
-    /// Returns the side which makes this move
+    /// Returns the piece (alongside with its color) which is making this move.
+    ///
+    /// For null moves, [`Cell::EMPTY`] is returned.
     #[inline]
-    pub const fn side(&self) -> Option<Color> {
-        self.side
+    pub const fn src_cell(&self) -> Cell {
+        self.src_cell
     }
 
     /// Converts this move into a parsed UCI representation
@@ -472,12 +487,12 @@ impl Move {
     /// # Example
     ///
     /// ```
-    /// # use owlchess::{Move, Board, MoveKind, File, Rank, Coord, Color, moves::Style};
+    /// # use owlchess::{Move, Board, MoveKind, File, Rank, Coord, Cell, Piece, Color, moves::Style};
     /// #
     /// let b = Board::initial();
     /// let g1 = Coord::from_parts(File::G, Rank::R1);
     /// let f3 = Coord::from_parts(File::F, Rank::R3);
-    /// let mv = Move::new(MoveKind::Simple, g1, f3, Color::White).unwrap();
+    /// let mv = Move::new(MoveKind::Simple, Cell::from_parts(Color::White, Piece::Knight), g1, f3).unwrap();
     /// assert_eq!(mv.styled(&b, Style::Uci).unwrap().to_string(), "g1f3".to_string());
     /// assert_eq!(mv.styled(&b, Style::San).unwrap().to_string(), "Nf3".to_string());
     /// assert_eq!(mv.styled(&b, Style::SanUtf8).unwrap().to_string(), "♘f3".to_string());
@@ -669,7 +684,7 @@ fn do_make_castling_queenside<C: generic::Color>(b: &mut Board, inv: bool) {
 }
 
 fn do_make_move<C: generic::Color>(b: &mut Board, mv: Move) -> RawUndo {
-    let src_cell = b.get(mv.src);
+    let src_cell = mv.src_cell;
     let dst_cell = b.get(mv.dst);
     let undo = RawUndo {
         hash: b.hash,
@@ -681,12 +696,13 @@ fn do_make_move<C: generic::Color>(b: &mut Board, mv: Move) -> RawUndo {
     let src = Bitboard::from_coord(mv.src);
     let dst = Bitboard::from_coord(mv.dst);
     let change = src | dst;
+    let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
     if let Some(p) = b.r.ep_source {
         b.hash ^= zobrist::enpassant(p);
         b.r.ep_source = None;
     }
     match mv.kind {
-        MoveKind::Simple | MoveKind::PawnSimple => {
+        MoveKind::Simple => {
             b.r.put(mv.src, Cell::EMPTY);
             b.r.put(mv.dst, src_cell);
             b.hash ^= zobrist::pieces(src_cell, mv.src)
@@ -696,7 +712,7 @@ fn do_make_move<C: generic::Color>(b: &mut Board, mv: Move) -> RawUndo {
             *b.piece_mut(src_cell) ^= change;
             *b.color_mut(C::COLOR.inv()) &= !dst;
             *b.piece_mut(dst_cell) &= !dst;
-            if mv.kind == MoveKind::Simple {
+            if src_cell != pawn {
                 update_castling(b, change);
             }
         }
@@ -708,7 +724,6 @@ fn do_make_move<C: generic::Color>(b: &mut Board, mv: Move) -> RawUndo {
         | MoveKind::PromoteRook
         | MoveKind::PromoteQueen => {
             let promote = Cell::from_parts(C::COLOR, mv.kind.promote().unwrap());
-            let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
             b.r.put(mv.src, Cell::EMPTY);
             b.r.put(mv.dst, promote);
             b.hash ^= zobrist::pieces(src_cell, mv.src)
@@ -735,7 +750,7 @@ fn do_make_move<C: generic::Color>(b: &mut Board, mv: Move) -> RawUndo {
         }
     }
 
-    if dst_cell != Cell::EMPTY || src_cell == Cell::from_parts(C::COLOR, Piece::Pawn) {
+    if dst_cell != Cell::EMPTY || src_cell == pawn {
         b.r.move_counter = 0;
     } else {
         b.r.move_counter += 1;
@@ -758,7 +773,7 @@ fn do_unmake_move<C: generic::Color>(b: &mut Board, mv: Move, u: RawUndo) {
     let dst_cell = u.dst_cell;
 
     match mv.kind {
-        MoveKind::Simple | MoveKind::PawnSimple => {
+        MoveKind::Simple => {
             b.r.put(mv.src, src_cell);
             b.r.put(mv.dst, dst_cell);
             *b.color_mut(C::COLOR) ^= change;
@@ -852,86 +867,64 @@ pub unsafe fn unmake_move_unchecked(b: &mut Board, mv: Move, u: RawUndo) {
     }
 }
 
-fn is_bishop_semilegal(src: Coord, dst: Coord, all: Bitboard) -> bool {
-    between::is_bishop_valid(src, dst) && (between::bishop_strict(src, dst) & all).is_empty()
-}
-
-fn is_rook_semilegal(src: Coord, dst: Coord, all: Bitboard) -> bool {
-    between::is_rook_valid(src, dst) && (between::rook_strict(src, dst) & all).is_empty()
+fn is_queen_semilegal(src: Coord, dst: Coord, all: Bitboard) -> bool {
+    if between::is_bishop_valid(src, dst) {
+        (between::bishop_strict(src, dst) & all).is_empty()
+    } else {
+        (between::rook_strict(src, dst) & all).is_empty()
+    }
 }
 
 fn do_is_move_semilegal<C: generic::Color>(b: &Board, mv: Move) -> bool {
-    if mv.side == Some(C::COLOR.inv()) {
+    let dst_cell = b.get(mv.dst);
+
+    if mv.kind == MoveKind::Null
+        || b.get(mv.src) != mv.src_cell
+        || mv.src_cell.color() != Some(C::COLOR)
+        || dst_cell.color() == Some(C::COLOR)
+    {
         return false;
     }
-    let src_cell = b.get(mv.src);
-    let pawn = Cell::from_parts(C::COLOR, Piece::Pawn);
-    match mv.kind {
-        MoveKind::Simple => {
-            let dst = Bitboard::from_coord(mv.dst);
-            if src_cell.color() != Some(C::COLOR) || (dst & b.color(C::COLOR)).is_nonempty() {
-                return false;
+
+    match mv.src_cell.piece().unwrap() {
+        Piece::Pawn => match mv.kind {
+            MoveKind::PawnDouble => {
+                let tmp_cell =
+                    unsafe { b.get(mv.src.add_unchecked(geometry::pawn_forward_delta(C::COLOR))) };
+                tmp_cell == Cell::EMPTY && dst_cell == Cell::EMPTY
             }
-            match src_cell.piece() {
-                Some(Piece::Bishop) => is_bishop_semilegal(mv.src, mv.dst, b.all),
-                Some(Piece::Rook) => is_rook_semilegal(mv.src, mv.dst, b.all),
-                Some(Piece::Queen) => {
-                    is_bishop_semilegal(mv.src, mv.dst, b.all)
-                        || is_rook_semilegal(mv.src, mv.dst, b.all)
-                }
-                Some(Piece::Knight) => (attack::knight(mv.src) & dst).is_nonempty(),
-                Some(Piece::King) => (attack::king(mv.src) & dst).is_nonempty(),
-                Some(Piece::Pawn) => false,
-                _ => unreachable!(),
+            MoveKind::Enpassant => match b.r.ep_source {
+                Some(p) => unsafe {
+                    (p == mv.src.add_unchecked(1) || p == mv.src.add_unchecked(-1))
+                        && mv.dst == p.add_unchecked(geometry::pawn_forward_delta(C::COLOR))
+                },
+                None => false,
+            },
+            _ => (mv.dst.file() == mv.src.file()) == (dst_cell == Cell::EMPTY),
+        },
+        Piece::King => match mv.kind {
+            MoveKind::CastlingKingside => {
+                b.r.castling.has(C::COLOR, CastlingSide::King)
+                    && (b.all & castling::pass(C::COLOR, CastlingSide::King)).is_empty()
+                    && !movegen::do_is_cell_attacked::<C::Inv>(b, mv.src)
+                    && !movegen::do_is_cell_attacked::<C::Inv>(b, unsafe {
+                        mv.src.add_unchecked(1)
+                    })
             }
-        }
-        MoveKind::PawnSimple
-        | MoveKind::PromoteKnight
-        | MoveKind::PromoteBishop
-        | MoveKind::PromoteRook
-        | MoveKind::PromoteQueen => {
-            if src_cell != pawn {
-                return false;
+            MoveKind::CastlingQueenside => {
+                b.r.castling.has(C::COLOR, CastlingSide::Queen)
+                    && (b.all & castling::pass(C::COLOR, CastlingSide::Queen)).is_empty()
+                    && !movegen::do_is_cell_attacked::<C::Inv>(b, mv.src)
+                    && !movegen::do_is_cell_attacked::<C::Inv>(b, unsafe {
+                        mv.src.add_unchecked(-1)
+                    })
             }
-            let dst_cell = b.r.get(mv.dst);
-            if let Some(c) = dst_cell.color() {
-                c == C::COLOR.inv() && mv.dst.file() != mv.src.file()
-            } else {
-                mv.dst.file() == mv.src.file()
-            }
-        }
-        MoveKind::PawnDouble => {
-            let must_empty = match C::COLOR {
-                Color::White => Bitboard::from_raw(0x0101 << (mv.src.index() - 16)),
-                Color::Black => Bitboard::from_raw(0x010100 << mv.src.index()),
-            };
-            src_cell == pawn && (b.all & must_empty).is_empty()
-        }
-        MoveKind::CastlingKingside => {
-            b.r.castling.has(C::COLOR, CastlingSide::King)
-                && (b.all & castling::pass(C::COLOR, CastlingSide::King)).is_empty()
-                && !movegen::do_is_cell_attacked::<C::Inv>(b, mv.src)
-                && !movegen::do_is_cell_attacked::<C::Inv>(b, unsafe { mv.src.add_unchecked(1) })
-        }
-        MoveKind::CastlingQueenside => {
-            b.r.castling.has(C::COLOR, CastlingSide::Queen)
-                && (b.all & castling::pass(C::COLOR, CastlingSide::Queen)).is_empty()
-                && !movegen::do_is_cell_attacked::<C::Inv>(b, mv.src)
-                && !movegen::do_is_cell_attacked::<C::Inv>(b, unsafe { mv.src.add_unchecked(-1) })
-        }
-        MoveKind::Enpassant => {
-            if src_cell != pawn {
-                return false;
-            }
-            if let Some(p) = b.r.ep_source {
-                unsafe {
-                    return (p == mv.src.add_unchecked(1) || p == mv.src.add_unchecked(-1))
-                        && mv.dst == p.add_unchecked(geometry::pawn_forward_delta(C::COLOR));
-                }
-            }
-            false
-        }
-        MoveKind::Null => false,
+            _ => true,
+        },
+        Piece::Knight => true,
+        Piece::Bishop => (between::bishop_strict(mv.src, mv.dst) & b.all).is_empty(),
+        Piece::Rook => (between::rook_strict(mv.src, mv.dst) & b.all).is_empty(),
+        Piece::Queen => is_queen_semilegal(mv.src, mv.dst, b.all),
     }
 }
 
@@ -965,41 +958,50 @@ mod tests {
     #[test]
     fn test_simple() {
         let mut b = Board::initial();
-        for (mv_str, fen_str) in [
+        for (mv_str, fen_str, kind) in [
             (
                 "e2e4",
                 "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+                MoveKind::PawnDouble,
             ),
             (
                 "b8c6",
                 "r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2",
+                MoveKind::Simple,
             ),
             (
                 "g1f3",
                 "r1bqkbnr/pppppppp/2n5/8/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 2 2",
+                MoveKind::Simple,
             ),
             (
                 "e7e5",
                 "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq e6 0 3",
+                MoveKind::PawnDouble,
             ),
             (
                 "f1b5",
                 "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 1 3",
+                MoveKind::Simple,
             ),
             (
                 "g8f6",
                 "r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 4",
+                MoveKind::Simple,
             ),
             (
                 "e1g1",
                 "r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 3 4",
+                MoveKind::CastlingKingside,
             ),
             (
                 "f6e4",
                 "r1bqkb1r/pppp1ppp/2n5/1B2p3/4n3/5N2/PPPP1PPP/RNBQ1RK1 w kq - 0 5",
+                MoveKind::Simple,
             ),
         ] {
             let m = Move::from_uci_semilegal(mv_str, &b).unwrap();
+            assert_eq!(m.kind(), kind);
             b = b.make_move(m).unwrap();
             assert_eq!(b.as_fen(), fen_str);
             assert_eq!(b.raw().try_into(), Ok(b.clone()));
@@ -1091,9 +1093,10 @@ mod tests {
         assert!(!m.is_semilegal(&b));
         assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSemiLegal));
 
-        let m = Move::from_uci("a3a4", &b).unwrap();
-        assert!(!m.is_semilegal(&b));
-        assert_eq!(m.semi_validate(&b), Err(ValidateError::NotSemiLegal));
+        assert_eq!(
+            Move::from_uci("a3a4", &b),
+            Err(uci::BasicParseError::Create(CreateError::NotWellFormed))
+        );
 
         let m = Move::from_uci("e1d1", &b).unwrap();
         assert!(!m.is_semilegal(&b));

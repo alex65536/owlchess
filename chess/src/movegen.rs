@@ -216,8 +216,19 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
         }
     }
 
-    unsafe fn add_move(&mut self, kind: MoveKind, src: Coord, dst: Coord) -> Result<(), P::Err> {
-        self.dst.push(Move::new_unchecked(kind, src, dst, C::COLOR))
+    unsafe fn add_move(
+        &mut self,
+        kind: MoveKind,
+        piece: Piece,
+        src: Coord,
+        dst: Coord,
+    ) -> Result<(), P::Err> {
+        self.dst.push(Move::new_unchecked(
+            kind,
+            Cell::from_parts(C::COLOR, piece),
+            src,
+            dst,
+        ))
     }
 
     unsafe fn add_pawn_with_promote<const IS_PROMOTE: bool>(
@@ -226,12 +237,12 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
         dst: Coord,
     ) -> Result<(), P::Err> {
         if IS_PROMOTE {
-            self.add_move(MoveKind::PromoteKnight, src, dst)?;
-            self.add_move(MoveKind::PromoteBishop, src, dst)?;
-            self.add_move(MoveKind::PromoteRook, src, dst)?;
-            self.add_move(MoveKind::PromoteQueen, src, dst)?;
+            self.add_move(MoveKind::PromoteKnight, Piece::Pawn, src, dst)?;
+            self.add_move(MoveKind::PromoteBishop, Piece::Pawn, src, dst)?;
+            self.add_move(MoveKind::PromoteRook, Piece::Pawn, src, dst)?;
+            self.add_move(MoveKind::PromoteQueen, Piece::Pawn, src, dst)?;
         } else {
-            self.add_move(MoveKind::PawnSimple, src, dst)?;
+            self.add_move(MoveKind::Simple, Piece::Pawn, src, dst)?;
         }
         Ok(())
     }
@@ -253,7 +264,7 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
         let tmp = pawns::advance_forward(C::COLOR, pawns) & !self.board.all;
         for dst in pawns::advance_forward(C::COLOR, tmp) & !self.board.all {
             let src = dst.add_unchecked(-2 * geometry::pawn_forward_delta(C::COLOR));
-            self.add_move(MoveKind::PawnDouble, src, dst)?;
+            self.add_move(MoveKind::PawnDouble, Piece::Pawn, src, dst)?;
         }
         Ok(())
     }
@@ -313,12 +324,12 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
             let (left_pawn, right_pawn) = unsafe { (ep.add_unchecked(-1), ep.add_unchecked(1)) };
             if file != File::A && self.board.get(left_pawn) == pawn {
                 unsafe {
-                    self.add_move(MoveKind::Enpassant, left_pawn, dst)?;
+                    self.add_move(MoveKind::Enpassant, Piece::Pawn, left_pawn, dst)?;
                 }
             }
             if file != File::H && self.board.get(right_pawn) == pawn {
                 unsafe {
-                    self.add_move(MoveKind::Enpassant, right_pawn, dst)?;
+                    self.add_move(MoveKind::Enpassant, Piece::Pawn, right_pawn, dst)?;
                 }
             }
         }
@@ -348,7 +359,7 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
             };
             for dst in attack & allowed {
                 unsafe {
-                    self.add_move(MoveKind::Simple, src, dst)?;
+                    self.add_move(MoveKind::Simple, p, src, dst)?;
                 }
             }
         }
@@ -364,19 +375,28 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
     }
 
     #[inline]
-    fn do_gen_brq<const SIMPLE: bool, const CAPTURE: bool, const IS_DIAG: bool>(
+    fn do_gen_brq<
+        const SIMPLE: bool,
+        const CAPTURE: bool,
+        const IS_DIAG: bool,
+        const IS_LINE: bool,
+    >(
         &mut self,
-        b: Bitboard,
+        p: Piece,
     ) -> Result<(), P::Err> {
         let allowed = self.allowed_mask::<SIMPLE, CAPTURE>();
-        for src in b {
-            let attack = match IS_DIAG {
-                true => attack::bishop(src, self.board.all),
-                false => attack::rook(src, self.board.all),
+        for src in self.board.piece2(C::COLOR, p) {
+            let attack = match (IS_DIAG, IS_LINE) {
+                (true, true) => {
+                    attack::bishop(src, self.board.all) | attack::rook(src, self.board.all)
+                }
+                (true, false) => attack::bishop(src, self.board.all),
+                (false, true) => attack::rook(src, self.board.all),
+                (false, false) => Bitboard::EMPTY,
             };
             for dst in attack & allowed {
                 unsafe {
-                    self.add_move(MoveKind::Simple, src, dst)?;
+                    self.add_move(MoveKind::Simple, p, src, dst)?;
                 }
             }
         }
@@ -384,8 +404,9 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
     }
 
     fn gen_brq<const SIMPLE: bool, const CAPTURE: bool>(&mut self) -> Result<(), P::Err> {
-        self.do_gen_brq::<SIMPLE, CAPTURE, true>(self.board.piece_diag(C::COLOR))?;
-        self.do_gen_brq::<SIMPLE, CAPTURE, false>(self.board.piece_line(C::COLOR))?;
+        self.do_gen_brq::<SIMPLE, CAPTURE, true, false>(Piece::Bishop)?;
+        self.do_gen_brq::<SIMPLE, CAPTURE, false, true>(Piece::Rook)?;
+        self.do_gen_brq::<SIMPLE, CAPTURE, true, true>(Piece::Queen)?;
         Ok(())
     }
 
@@ -405,7 +426,7 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
                 && !do_is_cell_attacked::<C::Inv>(self.board, tmp)
             {
                 unsafe {
-                    self.add_move(MoveKind::CastlingKingside, src, dst)?;
+                    self.add_move(MoveKind::CastlingKingside, Piece::King, src, dst)?;
                 }
             }
         }
@@ -419,7 +440,7 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
                 && !do_is_cell_attacked::<C::Inv>(self.board, tmp)
             {
                 unsafe {
-                    self.add_move(MoveKind::CastlingQueenside, src, dst)?;
+                    self.add_move(MoveKind::CastlingQueenside, Piece::King, src, dst)?;
                 }
             }
         }
@@ -477,7 +498,7 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
         };
         for src in mask & self.board.piece2(C::COLOR, piece) {
             unsafe {
-                self.add_move(MoveKind::Simple, src, dst)?;
+                self.add_move(MoveKind::Simple, piece, src, dst)?;
             }
         }
         Ok(())
@@ -497,12 +518,12 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
         let pawns =
             self.board.piece2(C::COLOR, Piece::Pawn) & pawn_mask & bitboard_consts::file(src);
         let allowed = self.board.color(C::COLOR.inv());
-        let kind = promote.map(MoveKind::from).unwrap_or(MoveKind::PawnSimple);
+        let kind = promote.map(MoveKind::from).unwrap_or(MoveKind::Simple);
         if src.index() == dst.index() + 1 {
             let left_delta = geometry::pawn_left_delta(C::COLOR);
             for dst in pawns::advance_left(C::COLOR, pawns) & allowed {
                 unsafe {
-                    self.add_move(kind, dst.add_unchecked(-left_delta), dst)?;
+                    self.add_move(kind, Piece::Pawn, dst.add_unchecked(-left_delta), dst)?;
                 }
             }
         }
@@ -510,7 +531,7 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
             let right_delta = geometry::pawn_right_delta(C::COLOR);
             for dst in pawns::advance_right(C::COLOR, pawns) & allowed {
                 unsafe {
-                    self.add_move(kind, dst.add_unchecked(-right_delta), dst)?;
+                    self.add_move(kind, Piece::Pawn, dst.add_unchecked(-right_delta), dst)?;
                 }
             }
         }
@@ -524,12 +545,12 @@ impl<'a, P: MaybeMovePush, C: generic::Color> MoveGenImpl<'a, P, C> {
                     unsafe { (ep.add_unchecked(-1), ep.add_unchecked(1)) };
                 if src.index() + 1 == dst.index() && self.board.get(left_pawn) == pawn {
                     unsafe {
-                        self.add_move(MoveKind::Enpassant, left_pawn, dst_coord)?;
+                        self.add_move(MoveKind::Enpassant, Piece::Pawn, left_pawn, dst_coord)?;
                     }
                 }
                 if src.index() == dst.index() + 1 && self.board.get(right_pawn) == pawn {
                     unsafe {
-                        self.add_move(MoveKind::Enpassant, right_pawn, dst_coord)?;
+                        self.add_move(MoveKind::Enpassant, Piece::Pawn, right_pawn, dst_coord)?;
                     }
                 }
             }
