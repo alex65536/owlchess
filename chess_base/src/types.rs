@@ -951,6 +951,7 @@ impl FromStr for CastlingRights {
 }
 
 /// Reason for game finish with draw
+#[non_exhaustive]
 #[derive(Debug, Display, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum DrawReason {
     /// Draw by stalemate
@@ -989,6 +990,7 @@ pub enum DrawReason {
 }
 
 /// Reason for game finish with win
+#[non_exhaustive]
 #[derive(Debug, Display, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum WinReason {
     /// Game ends with checkmate
@@ -1006,6 +1008,9 @@ pub enum WinReason {
     /// Opponent resigns
     #[display(fmt = "opponent resigns")]
     Resign,
+    /// Opponent abandons the game
+    #[display(fmt = "opponent abandons the game")]
+    Abandon,
     /// Reason is unknown
     #[display(fmt = "unknown reason")]
     Unknown,
@@ -1113,6 +1118,7 @@ impl fmt::Display for Outcome {
                     write!(f, "{} is a buggy chess engine", side.inv().as_long_str())
                 }
                 WinReason::Resign => write!(f, "{} resigns", side.inv().as_long_str()),
+                WinReason::Abandon => write!(f, "{} abandons the game", side.inv().as_long_str()),
                 WinReason::Unknown => write!(f, "{} wins by unknown reason", side.as_long_str()),
             },
         }
