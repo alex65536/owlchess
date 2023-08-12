@@ -46,7 +46,7 @@ pub enum IntoMoveError {
     /// Note that, when the move is not well-formed, you can also get [`IntoMoveError::NotFound`] error.
     #[error("cannot create move: {0}")]
     Create(#[from] CreateError),
-    /// Resulting mvoe is not legal
+    /// Resulting move is not legal
     ///
     /// Note that, when the move is not legal, you can also get [`IntoMoveError::NotFound`] error.
     #[error("invalid move: {0}")]
