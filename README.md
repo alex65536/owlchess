@@ -106,7 +106,7 @@ They may give you more ideas on how to use the crate.
 ## Rust version
 
 This crate is currently tested only with Rust 1.71 or higher, but can possibly work with older versions.
-Rust versions before 1.62 are definitely not supported.
+Rust versions before 1.64 are not supported.
 
 ## Comparison with other crates
 

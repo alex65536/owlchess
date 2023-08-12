@@ -12,3 +12,4 @@ repository = "https://github.com/alex65536/owlchess"
 license = "MIT"
 keywords = ["games", "chess"]
 categories = ["games", "parser-implementations"]
+rust-version = "1.64.0"
