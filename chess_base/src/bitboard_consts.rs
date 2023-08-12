@@ -88,9 +88,3 @@ pub const LIGHT_SQUARES: Bitboard = Bitboard::from_raw(0xaa55aa55aa55aa55);
 
 /// Bitboard containing all the dark squares on the board
 pub const DARK_SQUARES: Bitboard = Bitboard::from_raw(0x55aa55aa55aa55aa);
-
-#[deprecated(since = "0.3.3", note = "Use `LIGHT_SQUARES`")]
-pub const CELLS_WHITE: Bitboard = LIGHT_SQUARES;
-
-#[deprecated(since = "0.3.3", note = "Use `DARK_SQUARES`")]
-pub const CELLS_BLACK: Bitboard = DARK_SQUARES;
