@@ -555,10 +555,6 @@ pub struct RawUndo {
     move_counter: u16,
 }
 
-trait MakeMoveImpl {
-    const COLOR: Color;
-}
-
 fn update_castling(b: &mut Board, change: Bitboard) {
     if (change & castling::ALL_SRCS).is_empty() {
         return;
