@@ -378,7 +378,7 @@ impl Data {
                 Ok(mv)
             }
             Self::PawnMove { dst, promote } => {
-                if dst.rank() == geometry::promote_src_rank(b.side().inv()) {
+                if dst.rank() == geometry::promote_dst_rank(b.side().inv()) {
                     return Err(IntoMoveError::Create(CreateError::NotWellFormed));
                 }
                 let mut src = dst.add(-geometry::pawn_forward_delta(b.side()));
@@ -397,7 +397,7 @@ impl Data {
                 Ok(mv)
             }
             Self::PawnCapture { src, dst, promote } => {
-                if dst.rank() == geometry::promote_src_rank(b.side().inv()) {
+                if dst.rank() == geometry::promote_dst_rank(b.side().inv()) {
                     return Err(IntoMoveError::Create(CreateError::NotWellFormed));
                 }
                 let mut kind = MoveKind::Simple;
@@ -934,6 +934,23 @@ mod tests {
         assert_eq!(
             base::Move::from_san("a5", &b).unwrap(),
             base::Move::from_uci("a6a5", &b).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_pawns_bad() {
+        let b = Board::from_str("k5K1/8/p4q2/1P4n1/8/2P5/5q2/8 b - - 0 1").unwrap();
+        assert_eq!(
+            base::Move::from_san("bxa8", &b),
+            Err(ParseError::Convert(IntoMoveError::Create(
+                CreateError::NotWellFormed
+            )))
+        );
+        assert_eq!(
+            base::Move::from_san("c8", &b),
+            Err(ParseError::Convert(IntoMoveError::Create(
+                CreateError::NotWellFormed
+            )))
         );
     }
 
