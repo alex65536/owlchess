@@ -813,7 +813,7 @@ fn parse_cells(s: &str) -> Result<[Cell; 64], CellsParseError> {
             b'1'..=b'8' => {
                 let add = (b - b'0') as usize;
                 if file + add > 8 {
-                    return Err(CellsParseError::RankOverflow(Rank::from_index(rank)));
+                    return Err(Error::RankOverflow(Rank::from_index(rank)));
                 }
                 file += add;
                 pos += add;
