@@ -13,12 +13,12 @@ categories.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-owlchess_base = { path = "../chess_base", version = "0.4.0" }
+owlchess_base = { path = "../chess_base", version = "0.4.1" }
 thiserror = "1.0.31"
 arrayvec = "0.7.2"
 
 [build-dependencies]
-owlchess_base = { path = "../chess_base", version = "0.4.0" }
+owlchess_base = { path = "../chess_base", version = "0.4.1" }
 rand_xoshiro = "0.6.0"
 rand_core = "0.6.4"
 
