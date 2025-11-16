@@ -941,4 +941,11 @@ mod tests {
         assert_eq!(legal::gen_simple(&b).len(), 15);
         assert_eq!(legal::gen_capture(&b).len(), 0);
     }
+
+    #[test]
+    fn test_issue_6() {
+        // See https://github.com/alex65536/owlchess/issues/6.
+        let b = Board::from_fen("1nbqkbnr/2pp1ppp/1p6/pr2pP1K/8/8/PPPPP1PP/RNBQ1BNR w k e6 0 7").unwrap();
+        assert_eq!(legal::gen_all(&b).len(), 21);
+    }
 }

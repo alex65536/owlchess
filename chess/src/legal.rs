@@ -80,8 +80,9 @@ impl Prechecker for DefaultPrechecker {
                 None
             }
             PrecheckData::NotCheck { pinned_or_king } => {
-                if !pinned_or_king.has(mv.src()) {
-                    // The piece is not pinned and is not a king, so the move is definitely legal.
+                if !pinned_or_king.has(mv.src()) && mv.kind() != MoveKind::Enpassant {
+                    // The piece is not pinned and is not a king, and it's not en-passant, so the
+                    // move is definitely legal.
                     Some(true)
                 } else {
                     None
